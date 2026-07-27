@@ -1,9 +1,11 @@
 import LoginForm from "./LoginForm";
 import InviteAdmin from "./InviteAdmin";
+import MemberAdmin from "./MemberAdmin";
 import Footer from "@/components/Footer";
 import { getCurrentMember } from "@/lib/session";
 import { getUpcomingEvent, getAllEvents } from "@/lib/queries";
 import { logout } from "@/actions/auth";
+import { listMembers, listOrders } from "@/actions/admin";
 import { formatEventDate } from "@/lib/date";
 import { db } from "@/lib/db";
 import { invitations, events as eventsT } from "@/lib/schema";
@@ -59,20 +61,24 @@ export default async function GeheimratPage() {
   const isAdmin = member.role === "admin";
   const allEvents = isAdmin ? await getAllEvents() : [];
 
-  const invites = isAdmin
-    ? await db
-        .select({
-          code: invitations.code,
-          status: invitations.status,
-          guestName: invitations.guestName,
-          plusOnes: invitations.plusOnes,
-          numeral: eventsT.numeral,
-        })
-        .from(invitations)
-        .innerJoin(eventsT, eq(invitations.eventId, eventsT.id))
-        .orderBy(desc(invitations.id))
-        .limit(50)
-    : [];
+  const [invites, memberList, orderList] = isAdmin
+    ? await Promise.all([
+        db
+          .select({
+            code: invitations.code,
+            status: invitations.status,
+            guestName: invitations.guestName,
+            plusOnes: invitations.plusOnes,
+            numeral: eventsT.numeral,
+          })
+          .from(invitations)
+          .innerJoin(eventsT, eq(invitations.eventId, eventsT.id))
+          .orderBy(desc(invitations.id))
+          .limit(50),
+        listMembers(),
+        listOrders(),
+      ])
+    : [[], [], []];
 
   return (
     <>
@@ -175,6 +181,8 @@ export default async function GeheimratPage() {
                 <h2>Verwaltung</h2>
                 <span className="marke">Nur Admin</span>
               </div>
+
+              {/* Einladungen */}
               <div className="zwei">
                 <InviteAdmin
                   events={allEvents.map((e) => ({
@@ -203,6 +211,96 @@ export default async function GeheimratPage() {
                     ))}
                   </ul>
                 </div>
+              </div>
+
+              {/* Mitglieder */}
+              <div className="zwei" style={{ marginTop: "3rem" }}>
+                <MemberAdmin />
+                <div>
+                  <span className="marke">Mitglieder des Rats</span>
+                  <ul className="rechte-liste">
+                    {memberList.length === 0 && <li>Noch keine Mitglieder.</li>}
+                    {memberList.map((m) => (
+                      <li key={m.id}>
+                        <span style={{ flex: 1 }}>
+                          {m.name}{" "}
+                          <span className="marke">{m.email}</span>
+                        </span>
+                        <span className="marke">
+                          {m.role === "admin" ? "Admin" : `−${m.discountPct}%`}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Bestellungen */}
+              <div style={{ marginTop: "3rem" }}>
+                <span className="marke">Bestellungen (letzte 50)</span>
+                {orderList.length === 0 ? (
+                  <p className="lead" style={{ marginTop: "1rem" }}>
+                    Noch keine Bestellungen.
+                  </p>
+                ) : (
+                  <div style={{ marginTop: "1rem" }}>
+                    {orderList.map((o) => (
+                      <details
+                        key={o.id}
+                        style={{
+                          borderTop: "var(--rand)",
+                          padding: "1rem 0",
+                        }}
+                      >
+                        <summary
+                          style={{
+                            display: "flex",
+                            gap: "1rem",
+                            cursor: "pointer",
+                            listStyle: "none",
+                            alignItems: "baseline",
+                          }}
+                        >
+                          <span
+                            className="gold"
+                            style={{ fontFamily: "var(--mono)", minWidth: "3rem" }}
+                          >
+                            #{o.id}
+                          </span>
+                          <span style={{ flex: 1 }}>
+                            {o.buyerName}{" "}
+                            {o.isMember && <span className="badge">Rat</span>}
+                            <br />
+                            <span className="marke">{o.createdAt}</span>
+                          </span>
+                          <span className="preis">{o.totalLabel}</span>
+                        </summary>
+                        <div style={{ padding: "1rem 0 0 4rem" }}>
+                          <p style={{ color: "#C9C6BD", fontSize: ".9rem" }}>
+                            {o.buyerEmail} · {o.shipAddress}
+                          </p>
+                          <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+                            {o.items.map((it, idx) => (
+                              <li
+                                key={idx}
+                                style={{
+                                  display: "flex",
+                                  justifyContent: "space-between",
+                                  gap: "1rem",
+                                  fontSize: ".9rem",
+                                  padding: ".3rem 0",
+                                }}
+                              >
+                                <span>{it.label}</span>
+                                <span className="marke">{it.lineLabel}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}
