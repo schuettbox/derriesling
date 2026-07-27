@@ -187,15 +187,42 @@ async function runSetup() {
   };
 }
 
+/** Sichere Diagnose der DATABASE_URL – ohne Passwort preiszugeben. */
+function diagnose() {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    return {
+      hasDatabaseUrl: false,
+      hint: "DATABASE_URL ist in Vercel nicht gesetzt.",
+    };
+  }
+  const startsWithPostgres = /^postgres(ql)?:\/\//i.test(url);
+  const looksLikeNeon = /neon\.tech/i.test(url);
+  return {
+    hasDatabaseUrl: true,
+    startsWithPostgres,
+    looksLikeNeon,
+    hasAuthSecret: !!process.env.AUTH_SECRET,
+    hint:
+      !startsWithPostgres || !looksLikeNeon
+        ? "DATABASE_URL sieht nicht wie ein Neon-Connection-String aus (sollte mit postgresql:// beginnen und neon.tech enthalten). Vermutlich steht dort der falsche Wert."
+        : "DATABASE_URL sieht plausibel aus.",
+  };
+}
+
 export async function GET() {
   try {
     const result = await runSetup();
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json({ ok: true, diag: diagnose(), ...result });
   } catch (err) {
     console.error("[setup] Fehler", err);
     return NextResponse.json(
-      { ok: false, error: err instanceof Error ? err.message : String(err) },
-      { status: 500 }
+      {
+        ok: false,
+        error: err instanceof Error ? err.message : String(err),
+        diag: diagnose(),
+      },
+      { status: 200 }
     );
   }
 }
