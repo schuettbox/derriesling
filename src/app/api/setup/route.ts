@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { sql } from "drizzle-orm";
+import { sql, eq } from "drizzle-orm";
 import { db } from "@/lib/db";
 import {
   producers,
@@ -124,10 +124,32 @@ async function runSetup() {
     await db.execute(sql.raw(stmt));
   }
 
-  // 2) Nur säen, wenn noch keine Mitglieder existieren
+  // 2) Unabhängig sicherstellen (auch bei bereits vorhandener DB aus
+  //    einem früheren Setup): Admin ist Ratsmitglied, Demo-Codes existieren.
+  await db.update(members).set({ council: true }).where(eq(members.role, "admin"));
+
+  const codeRows = await db
+    .select({ id: membershipCodes.id })
+    .from(membershipCodes)
+    .limit(1);
+  if (codeRows.length === 0) {
+    await db
+      .insert(membershipCodes)
+      .values([
+        { code: "RAT-AAA-111", note: "Demo — Rats-Flasche" },
+        { code: "RAT-BBB-222", note: "Demo — Rats-Flasche" },
+      ])
+      .onConflictDoNothing();
+  }
+
+  // 3) Vollständig säen nur, wenn noch keine Konten existieren
   const existing = await db.select({ id: members.id }).from(members).limit(1);
   if (existing.length > 0) {
-    return { seeded: false, message: "Datenbank bereits eingerichtet." };
+    return {
+      seeded: false,
+      message: "Datenbank bereits eingerichtet (Rechte und Codes aktualisiert).",
+      geheimratscodes: ["RAT-AAA-111", "RAT-BBB-222"],
+    };
   }
 
   // Produzenten
@@ -199,15 +221,6 @@ async function runSetup() {
       council: true,
       discountPct: 15,
     })
-    .onConflictDoNothing();
-
-  // Beispiel-Geheimrat-Codes (wie sie auf den Flaschen stünden)
-  await db
-    .insert(membershipCodes)
-    .values([
-      { code: "RAT-AAA-111", note: "Demo — Rats-Flasche" },
-      { code: "RAT-BBB-222", note: "Demo — Rats-Flasche" },
-    ])
     .onConflictDoNothing();
 
   return {
