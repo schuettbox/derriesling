@@ -9,6 +9,7 @@ export type CatalogItem = {
   herkunft: string;
   listCents: number; // Katalogpreis
   payCents: number; // tatsächlich zu zahlender Preis (Ratspreis bei Mitgliedern)
+  special: boolean; // «DerRiesling»-Flasche mit Geheimrat-Code
 };
 
 const Ctx = createContext<{ items: CatalogItem[]; isMember: boolean }>({

@@ -10,10 +10,12 @@ import { logout } from "@/actions/auth";
 import { listMembers, listOrders } from "@/actions/admin";
 import {
   getMyAttendance,
+  includedAppliesTo,
   listMembershipCodes,
   countOpenCodes,
 } from "@/actions/membership";
 import { formatEventDate } from "@/lib/date";
+import { TICKET_CENTS } from "@/lib/price";
 import { db } from "@/lib/db";
 import { invitations, events as eventsT } from "@/lib/schema";
 import { eq, desc } from "drizzle-orm";
@@ -95,6 +97,7 @@ export default async function GeheimratPage() {
   /* ── (3) + (4) Geheimrat / Admin ───────────────────────────────── */
   const upcoming = await getUpcomingEvent();
   const myAttendance = upcoming ? await getMyAttendance(upcoming.id) : null;
+  const includedApplies = upcoming ? await includedAppliesTo(upcoming.id) : false;
 
   const [allEvents, invites, memberList, orderList, codeList, openCodes] =
     isAdmin
@@ -183,7 +186,12 @@ export default async function GeheimratPage() {
                 )}
               </dl>
 
-              <AttendanceButtons eventId={upcoming.id} initial={myAttendance} />
+              <AttendanceButtons
+                eventId={upcoming.id}
+                initial={myAttendance}
+                includedApplies={includedApplies}
+                ticketCents={TICKET_CENTS}
+              />
 
               <p className="siegel">
                 Ratspreis (−{member.discountPct}%) gilt automatisch im Shop.

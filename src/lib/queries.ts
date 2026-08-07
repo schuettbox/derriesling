@@ -10,7 +10,7 @@ export async function getCatalog(discountPct: number | null): Promise<CatalogIte
     .select()
     .from(wines)
     .where(eq(wines.active, true))
-    .orderBy(wines.id);
+    .orderBy(desc(wines.special), wines.id);
 
   return rows.map((w) => ({
     id: w.id,
@@ -18,10 +18,12 @@ export async function getCatalog(discountPct: number | null): Promise<CatalogIte
     name: w.name,
     herkunft: w.herkunft,
     listCents: w.priceCents,
+    // Sonderflasche «DerRiesling» ohne Rabatt
     payCents:
-      discountPct && discountPct > 0
+      !w.special && discountPct && discountPct > 0
         ? memberPriceCents(w.priceCents, discountPct)
         : w.priceCents,
+    special: w.special,
   }));
 }
 

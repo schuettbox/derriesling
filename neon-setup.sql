@@ -27,8 +27,10 @@ CREATE TABLE IF NOT EXISTS "wines" (
   "herkunft" text NOT NULL,
   "price_cents" integer NOT NULL,
   "active" boolean DEFAULT true NOT NULL,
+  "special" boolean DEFAULT false NOT NULL,
   "created_at" timestamp DEFAULT now() NOT NULL
 );
+ALTER TABLE "wines" ADD COLUMN IF NOT EXISTS "special" boolean DEFAULT false NOT NULL;
 
 CREATE TABLE IF NOT EXISTS "events" (
   "id" serial PRIMARY KEY NOT NULL,
@@ -50,11 +52,12 @@ CREATE TABLE IF NOT EXISTS "invitations" (
   "code" text NOT NULL UNIQUE,
   "event_id" integer NOT NULL REFERENCES "events"("id"),
   "guest_name" text,
-  "plus_ones" integer DEFAULT 1 NOT NULL,
+  "companion" boolean DEFAULT false NOT NULL,
   "status" "invite_status" DEFAULT 'open' NOT NULL,
   "responded_at" timestamp,
   "created_at" timestamp DEFAULT now() NOT NULL
 );
+ALTER TABLE "invitations" ADD COLUMN IF NOT EXISTS "companion" boolean DEFAULT false NOT NULL;
 
 CREATE TABLE IF NOT EXISTS "members" (
   "id" serial PRIMARY KEY NOT NULL,
@@ -82,7 +85,9 @@ CREATE TABLE IF NOT EXISTS "attendance" (
   "member_id" integer NOT NULL REFERENCES "members"("id"),
   "event_id" integer NOT NULL REFERENCES "events"("id"),
   "status" text DEFAULT 'confirmed' NOT NULL,
-  "plus_ones" integer DEFAULT 1 NOT NULL,
+  "included" boolean DEFAULT false NOT NULL,
+  "companion" boolean DEFAULT false NOT NULL,
+  "amount_cents" integer DEFAULT 0 NOT NULL,
   "created_at" timestamp DEFAULT now() NOT NULL,
   CONSTRAINT "attendance_member_event" UNIQUE ("member_id","event_id")
 );
@@ -117,22 +122,24 @@ SELECT * FROM (VALUES
   ('Hangwerk','Bündner Herrschaft, CH','bestellung@hangwerk.example'),
   ('Weingut Falkenhorst','Rheingau, DE','bestellung@falkenhorst.example'),
   ('Hofgut Donaustein','Wachau, AT','bestellung@donaustein.example'),
-  ('Weingut Sonnenspiel','Pfalz, DE','bestellung@sonnenspiel.example')
+  ('Weingut Sonnenspiel','Pfalz, DE','bestellung@sonnenspiel.example'),
+  ('DerRiesling','Basel, CH','post@derriesling.ch')
 ) AS v(name,region,order_email)
 WHERE NOT EXISTS (SELECT 1 FROM "producers");
 
 -- Weine (verknüpft über den Produzentennamen)
-INSERT INTO "wines" ("producer_id","winzer","name","herkunft","price_cents")
-SELECT p.id, w.winzer, w.name, w.herkunft, w.price_cents FROM (VALUES
-  ('Weingut Steinkauz','Weingut Steinkauz','«Schiefer I» Riesling trocken 2023','Mosel, DE',3400),
-  ('Domaine Bergrain','Domaine Bergrain','Riesling Grand Cru «Coteau» 2022','Alsace, FR',4200),
-  ('Weingut Rheinwarte','Weingut Rheinwarte','Riesling «Kalkstein» 2023','Baden, DE',2900),
-  ('Hangwerk','Hangwerk','Riesling 2022','Bündner Herrschaft, CH',4600),
-  ('Weingut Falkenhorst','Weingut Falkenhorst','Riesling Kabinett «Alte Reben» 2021','Rheingau, DE',3800),
-  ('Hofgut Donaustein','Hofgut Donaustein','Riesling Smaragd 2022','Wachau, AT',5200),
-  ('Weingut Sonnenspiel','Weingut Sonnenspiel','Riesling GG «Kreide» 2021','Pfalz, DE',5800),
-  ('Weingut Steinkauz','Weingut Steinkauz','Riesling Auslese 2019 · 37.5 cl','Mosel, DE',4400)
-) AS w(pname,winzer,name,herkunft,price_cents)
+INSERT INTO "wines" ("producer_id","winzer","name","herkunft","price_cents","special")
+SELECT p.id, w.winzer, w.name, w.herkunft, w.price_cents, w.special FROM (VALUES
+  ('Weingut Steinkauz','Weingut Steinkauz','«Schiefer I» Riesling trocken 2023','Mosel, DE',3400,false),
+  ('Domaine Bergrain','Domaine Bergrain','Riesling Grand Cru «Coteau» 2022','Alsace, FR',4200,false),
+  ('Weingut Rheinwarte','Weingut Rheinwarte','Riesling «Kalkstein» 2023','Baden, DE',2900,false),
+  ('Hangwerk','Hangwerk','Riesling 2022','Bündner Herrschaft, CH',4600,false),
+  ('Weingut Falkenhorst','Weingut Falkenhorst','Riesling Kabinett «Alte Reben» 2021','Rheingau, DE',3800,false),
+  ('Hofgut Donaustein','Hofgut Donaustein','Riesling Smaragd 2022','Wachau, AT',5200,false),
+  ('Weingut Sonnenspiel','Weingut Sonnenspiel','Riesling GG «Kreide» 2021','Pfalz, DE',5800,false),
+  ('Weingut Steinkauz','Weingut Steinkauz','Riesling Auslese 2019 · 37.5 cl','Mosel, DE',4400,false),
+  ('DerRiesling','DerRiesling','«DerRiesling» — Flasche mit Geheimrat-Code · eine Teilnahme inbegriffen','Basel, CH',25000,true)
+) AS w(pname,winzer,name,herkunft,price_cents,special)
 JOIN "producers" p ON p.name = w.pname
 WHERE NOT EXISTS (SELECT 1 FROM "wines");
 

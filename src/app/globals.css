@@ -124,6 +124,8 @@ nav.site a:hover{color:var(--kalk)}
 .regal{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:1px;background:rgba(237,234,224,.14);border:var(--rand)}
 .flasche{background:var(--schiefer);padding:1.75rem 1.5rem 1.5rem;display:flex;flex-direction:column;gap:.5rem;transition:background .3s}
 .flasche:hover{background:var(--schiefer-hell)}
+.flasche--special{background:linear-gradient(150deg,rgba(228,208,138,.12),var(--schiefer) 60%);outline:1px solid var(--mostgold);outline-offset:-1px}
+.flasche--special .winzer{color:var(--mostgold)}
 .flasche .winzer{font-family:var(--serif);font-size:1.15rem}
 .flasche .name{color:#C9C6BD;font-size:.94rem;flex:1}
 .preise{display:flex;align-items:baseline;gap:.8rem;margin-top:.75rem}

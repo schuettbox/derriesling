@@ -11,7 +11,6 @@ export default function InviteAdmin({
   const [eventId, setEventId] = useState(events[0]?.id ?? 0);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
-  const [plusOnes, setPlusOnes] = useState(1);
   const [busy, setBusy] = useState(false);
   const [code, setCode] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -24,7 +23,6 @@ export default function InviteAdmin({
       eventId: Number(eventId),
       guestName,
       guestEmail,
-      plusOnes: Number(plusOnes),
     });
     setBusy(false);
     if (res.ok) {
@@ -87,18 +85,10 @@ export default function InviteAdmin({
         placeholder="name@domain.ch"
       />
 
-      <label className="marke" htmlFor="po">
-        Begleitpersonen
-      </label>
-      <input
-        id="po"
-        data-mono
-        type="number"
-        min={0}
-        max={4}
-        value={plusOnes}
-        onChange={(e) => setPlusOnes(Number(e.target.value))}
-      />
+      <p style={{ fontSize: ".82rem", color: "var(--kalk-matt)", marginTop: "-.4rem" }}>
+        Die Einladung gilt für eine Person. Eine Begleitung kann der Gast beim
+        Bestätigen selbst dazubuchen.
+      </p>
 
       {error && <p className="formfehler">{error}</p>}
       <button

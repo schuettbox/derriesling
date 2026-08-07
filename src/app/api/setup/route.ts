@@ -39,8 +39,10 @@ const DDL: string[] = [
     "herkunft" text NOT NULL,
     "price_cents" integer NOT NULL,
     "active" boolean DEFAULT true NOT NULL,
+    "special" boolean DEFAULT false NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL
   );`,
+  `ALTER TABLE "wines" ADD COLUMN IF NOT EXISTS "special" boolean DEFAULT false NOT NULL;`,
   `CREATE TABLE IF NOT EXISTS "events" (
     "id" serial PRIMARY KEY NOT NULL,
     "numeral" text NOT NULL,
@@ -60,11 +62,12 @@ const DDL: string[] = [
     "code" text NOT NULL UNIQUE,
     "event_id" integer NOT NULL REFERENCES "events"("id"),
     "guest_name" text,
-    "plus_ones" integer DEFAULT 1 NOT NULL,
+    "companion" boolean DEFAULT false NOT NULL,
     "status" "invite_status" DEFAULT 'open' NOT NULL,
     "responded_at" timestamp,
     "created_at" timestamp DEFAULT now() NOT NULL
   );`,
+  `ALTER TABLE "invitations" ADD COLUMN IF NOT EXISTS "companion" boolean DEFAULT false NOT NULL;`,
   `CREATE TABLE IF NOT EXISTS "members" (
     "id" serial PRIMARY KEY NOT NULL,
     "email" text NOT NULL UNIQUE,
@@ -108,10 +111,15 @@ const DDL: string[] = [
     "member_id" integer NOT NULL REFERENCES "members"("id"),
     "event_id" integer NOT NULL REFERENCES "events"("id"),
     "status" text DEFAULT 'confirmed' NOT NULL,
-    "plus_ones" integer DEFAULT 1 NOT NULL,
+    "included" boolean DEFAULT false NOT NULL,
+    "companion" boolean DEFAULT false NOT NULL,
+    "amount_cents" integer DEFAULT 0 NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL,
     CONSTRAINT "attendance_member_event" UNIQUE ("member_id","event_id")
   );`,
+  `ALTER TABLE "attendance" ADD COLUMN IF NOT EXISTS "included" boolean DEFAULT false NOT NULL;`,
+  `ALTER TABLE "attendance" ADD COLUMN IF NOT EXISTS "companion" boolean DEFAULT false NOT NULL;`,
+  `ALTER TABLE "attendance" ADD COLUMN IF NOT EXISTS "amount_cents" integer DEFAULT 0 NOT NULL;`,
 ];
 
 // Vorab berechneter bcrypt-Hash für das Demo-Passwort "riesling"
@@ -140,6 +148,39 @@ async function runSetup() {
         { code: "RAT-BBB-222", note: "Demo — Rats-Flasche" },
       ])
       .onConflictDoNothing();
+  }
+
+  // «DerRiesling»-Flasche (CHF 250) sicherstellen – auch bei bestehender DB
+  const specialRows = await db
+    .select({ id: wines.id })
+    .from(wines)
+    .where(eq(wines.special, true))
+    .limit(1);
+  if (specialRows.length === 0) {
+    const existingProd = await db
+      .select({ id: producers.id })
+      .from(producers)
+      .where(eq(producers.name, "DerRiesling"));
+    let prodId = existingProd[0]?.id;
+    if (!prodId) {
+      const [p] = await db
+        .insert(producers)
+        .values({
+          name: "DerRiesling",
+          region: "Basel, CH",
+          orderEmail: process.env.ADMIN_EMAIL ?? "post@derriesling.ch",
+        })
+        .returning();
+      prodId = p.id;
+    }
+    await db.insert(wines).values({
+      producerId: prodId,
+      winzer: "DerRiesling",
+      name: "«DerRiesling» — Flasche mit Geheimrat-Code · eine Teilnahme inbegriffen",
+      herkunft: "Basel, CH",
+      priceCents: 25000,
+      special: true,
+    });
   }
 
   // 3) Vollständig säen nur, wenn noch keine Konten existieren
@@ -206,8 +247,8 @@ async function runSetup() {
 
   // Einladungscodes
   await db.insert(invitations).values([
-    { code: "RSL-VII-4820", eventId: naechste.id, plusOnes: 1, status: "open" },
-    { code: "RSL-VII-1174", eventId: naechste.id, plusOnes: 1, status: "open" },
+    { code: "RSL-VII-4820", eventId: naechste.id, status: "open" },
+    { code: "RSL-VII-1174", eventId: naechste.id, status: "open" },
   ]);
 
   // Admin-/Demo-Login (Admin ist zugleich Ratsmitglied)

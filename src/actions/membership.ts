@@ -3,8 +3,9 @@
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
 import { members, membershipCodes, attendance } from "@/lib/schema";
-import { eq, and, desc, isNull } from "drizzle-orm";
+import { eq, and, desc, isNull, ne } from "drizzle-orm";
 import { getCurrentMember } from "@/lib/session";
+import { TICKET_CENTS } from "@/lib/price";
 
 /* ── Geheimrat-Code im Konto einlösen ───────────────────────────── */
 export type RedeemResult =
@@ -46,14 +47,37 @@ export async function redeemMembershipCode(codeRaw: string): Promise<RedeemResul
   };
 }
 
-/* ── Teilnahme an der nächsten Sitzung bestätigen (nur Rat) ──────── */
+/* ── Teilnahme an der nächsten Sitzung bestätigen (nur Rat) ────────
+   Eine Teilnahme ist mit der Mitgliedschaft inbegriffen (einmalig).
+   Danach kostet der Zutritt CHF 95 pro Person. Eine Begleitung kann
+   für CHF 95 dazugebucht werden.                                     */
 export type AttendResult =
-  | { ok: true; status: "confirmed" | "declined" }
+  | { ok: true; status: "confirmed" | "declined"; amountCents: number }
   | { ok: false; error: string };
+
+/** Hat das Mitglied seine inbegriffene Teilnahme schon bei einem anderen Event genutzt? */
+async function includedUsedElsewhere(
+  memberId: number,
+  exceptEventId: number
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: attendance.id })
+    .from(attendance)
+    .where(
+      and(
+        eq(attendance.memberId, memberId),
+        eq(attendance.included, true),
+        eq(attendance.status, "confirmed"),
+        ne(attendance.eventId, exceptEventId)
+      )
+    );
+  return rows.length > 0;
+}
 
 export async function confirmAttendance(
   eventId: number,
-  decision: "confirm" | "decline"
+  decision: "confirm" | "decline",
+  companion: boolean = false
 ): Promise<AttendResult> {
   const me = await getCurrentMember();
   if (!me) return { ok: false, error: "Bitte zuerst anmelden." };
@@ -61,31 +85,70 @@ export async function confirmAttendance(
     return { ok: false, error: "Nur für Geheimrat-Mitglieder." };
   }
 
-  const status = decision === "confirm" ? "confirmed" : "declined";
+  if (decision === "decline") {
+    await db
+      .insert(attendance)
+      .values({ memberId: me.id, eventId, status: "declined", included: false, companion: false, amountCents: 0 })
+      .onConflictDoUpdate({
+        target: [attendance.memberId, attendance.eventId],
+        set: { status: "declined", included: false, companion: false, amountCents: 0 },
+      });
+    return { ok: true, status: "declined", amountCents: 0 };
+  }
+
+  const usedElsewhere = await includedUsedElsewhere(me.id, eventId);
+  const included = !usedElsewhere; // erste Teilnahme inbegriffen
+  const ownCost = included ? 0 : TICKET_CENTS;
+  const companionCost = companion ? TICKET_CENTS : 0;
+  const amountCents = ownCost + companionCost;
 
   await db
     .insert(attendance)
-    .values({ memberId: me.id, eventId, status, plusOnes: 1 })
+    .values({ memberId: me.id, eventId, status: "confirmed", included, companion, amountCents })
     .onConflictDoUpdate({
       target: [attendance.memberId, attendance.eventId],
-      set: { status },
+      set: { status: "confirmed", included, companion, amountCents },
     });
 
-  return { ok: true, status };
+  return { ok: true, status: "confirmed", amountCents };
 }
 
+export type MyAttendance = {
+  status: "confirmed" | "declined";
+  included: boolean;
+  companion: boolean;
+  amountCents: number;
+} | null;
+
 /** Aktueller Teilnahmestatus des Mitglieds für ein Event. */
-export async function getMyAttendance(
-  eventId: number
-): Promise<"confirmed" | "declined" | null> {
+export async function getMyAttendance(eventId: number): Promise<MyAttendance> {
   const me = await getCurrentMember();
   if (!me) return null;
   const rows = await db
-    .select({ status: attendance.status })
+    .select({
+      status: attendance.status,
+      included: attendance.included,
+      companion: attendance.companion,
+      amountCents: attendance.amountCents,
+    })
     .from(attendance)
     .where(and(eq(attendance.memberId, me.id), eq(attendance.eventId, eventId)));
-  const s = rows[0]?.status;
-  return s === "confirmed" || s === "declined" ? s : null;
+  const r = rows[0];
+  if (!r) return null;
+  if (r.status !== "confirmed" && r.status !== "declined") return null;
+  return {
+    status: r.status,
+    included: r.included,
+    companion: r.companion,
+    amountCents: r.amountCents,
+  };
+}
+
+/** Gilt die inbegriffene Teilnahme (noch) für dieses Event? (für die Anzeige) */
+export async function includedAppliesTo(eventId: number): Promise<boolean> {
+  const me = await getCurrentMember();
+  if (!me?.council) return false;
+  return !(await includedUsedElsewhere(me.id, eventId));
 }
 
 /* ── Admin: Geheimrat-Codes erzeugen (für die Flaschen) ─────────── */

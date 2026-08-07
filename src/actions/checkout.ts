@@ -1,7 +1,14 @@
 "use server";
 
+import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
-import { wines, orders, orderItems, producers } from "@/lib/schema";
+import {
+  wines,
+  orders,
+  orderItems,
+  producers,
+  membershipCodes,
+} from "@/lib/schema";
 import { inArray, eq } from "drizzle-orm";
 import { getCurrentMember } from "@/lib/session";
 import { memberPriceCents, formatCHF } from "@/lib/price";
@@ -15,8 +22,34 @@ export type CheckoutInput = {
 };
 
 export type CheckoutResult =
-  | { ok: true; orderId: number; producerCount: number; totalCents: number }
+  | {
+      ok: true;
+      orderId: number;
+      producerCount: number;
+      totalCents: number;
+      councilCodes: string[];
+    }
   | { ok: false; error: string };
+
+/** Erzeugt einen eindeutigen Geheimrat-Code (Etiketten-Code). */
+async function makeCouncilCode(note: string): Promise<string> {
+  const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const bytes = randomBytes(6);
+    let s = "";
+    for (const b of bytes) s += alphabet[b % alphabet.length];
+    const code = `RAT-${s.slice(0, 3)}-${s.slice(3, 6)}`;
+    const exists = await db
+      .select({ id: membershipCodes.id })
+      .from(membershipCodes)
+      .where(eq(membershipCodes.code, code));
+    if (exists.length === 0) {
+      await db.insert(membershipCodes).values({ code, note }).onConflictDoNothing();
+      return code;
+    }
+  }
+  throw new Error("Code-Erzeugung fehlgeschlagen");
+}
 
 export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
   const name = input.name?.trim();
@@ -47,6 +80,7 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
       name: wines.name,
       priceCents: wines.priceCents,
       active: wines.active,
+      special: wines.special,
       producerName: producers.name,
       producerEmail: producers.orderEmail,
     })
@@ -61,11 +95,12 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
   const isCouncil = !!member?.council;
   const discount = isCouncil ? member!.discountPct : 0;
 
-  // Positionen berechnen
+  // Positionen berechnen (Sonderflasche «DerRiesling» ohne Rabatt)
   const items = cleanLines.map((l) => {
     const w = byId.get(l.wineId);
     if (!w || !w.active) return null;
-    const unit = isCouncil ? memberPriceCents(w.priceCents, discount) : w.priceCents;
+    const unit =
+      isCouncil && !w.special ? memberPriceCents(w.priceCents, discount) : w.priceCents;
     return {
       wineId: w.id,
       producerId: w.producerId,
@@ -75,6 +110,7 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
       wineName: w.name,
       quantity: l.qty,
       unitPriceCents: unit,
+      special: w.special,
     };
   });
 
@@ -109,6 +145,16 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
       unitPriceCents: i.unitPriceCents,
     }))
   );
+
+  // Für jede gekaufte «DerRiesling»-Flasche einen Geheimrat-Code erzeugen
+  // (steht auf der Etikette). Wird der Kundschaft mitgeteilt.
+  const councilCodes: string[] = [];
+  const specialQty = valid
+    .filter((i) => i.special)
+    .reduce((s, i) => s + i.quantity, 0);
+  for (let n = 0; n < specialQty; n++) {
+    councilCodes.push(await makeCouncilCode(`DerRiesling-Flasche · Bestellung #${order.id}`));
+  }
 
   // Pro Produzent eine Bestellmail (DerRiesling ist nur Vermittler)
   const groups = new Map<number, typeof valid>();
@@ -148,7 +194,17 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
     })
   );
 
-  // Bestätigung an Kundschaft
+  // Bestätigung an Kundschaft (inkl. Geheimrat-Codes, falls Flasche gekauft)
+  const codeBlock =
+    councilCodes.length > 0
+      ? `\n\nAuf ${councilCodes.length === 1 ? "Ihrer «DerRiesling»-Flasche" : "Ihren «DerRiesling»-Flaschen"} finden Sie ` +
+        `${councilCodes.length === 1 ? "diesen Code" : "diese Codes"}. Im Konto unter ` +
+        `derriesling.ch/geheimrat eingelöst, wird daraus die Mitgliedschaft im ` +
+        `Geheimrat (inkl. einer inbegriffenen Teilnahme):\n\n` +
+        councilCodes.map((c) => `   ${c}`).join("\n") +
+        "\n"
+      : "";
+
   await sendMail({
     to: email,
     subject: `DerRiesling — Bestellbestätigung #${order.id}`,
@@ -156,13 +212,16 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
       `Vielen Dank, ${name}.\n\n` +
       `Ihre Bestellung #${order.id} ist eingegangen und wurde an die ` +
       `jeweiligen Weingüter weitergeleitet. Der Versand erfolgt getrennt ` +
-      `durch jedes Weingut.\n\nSumme: ${formatCHF(totalCents)}\n\n— DerRiesling`,
+      `durch jedes Weingut.\n\nSumme: ${formatCHF(totalCents)}` +
+      codeBlock +
+      `\n\n— DerRiesling`,
   });
 
   return {
     ok: true,
     orderId: order.id,
     producerCount: groups.size,
+    councilCodes,
     totalCents,
   };
 }

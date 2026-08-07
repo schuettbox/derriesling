@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { verifyInvite, respondInvite, type InviteView } from "@/actions/invite";
 import { formatEventDate } from "@/lib/date";
+import { formatCHF } from "@/lib/price";
 
 export default function EventClient() {
   const [code, setCode] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [invite, setInvite] = useState<InviteView | null>(null);
+  const [companion, setCompanion] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function pruefen() {
@@ -17,6 +19,7 @@ export default function EventClient() {
     setBusy(false);
     if (res.ok) {
       setInvite(res.invite);
+      setCompanion(res.invite.companion);
     } else {
       setInvite(null);
       setError(res.error);
@@ -26,10 +29,10 @@ export default function EventClient() {
   async function antwort(decision: "accept" | "decline") {
     if (!invite) return;
     setBusy(true);
-    const res = await respondInvite(invite.code, decision);
+    const res = await respondInvite(invite.code, decision, companion);
     setBusy(false);
     if (res.ok) {
-      setInvite({ ...invite, status: res.status });
+      setInvite({ ...invite, status: res.status, companion: res.companion });
     }
   }
 
@@ -50,17 +53,10 @@ export default function EventClient() {
           autoComplete="off"
         />
         {error && <p className="fehler">{error}</p>}
-        <button
-          className="knopf"
-          onClick={pruefen}
-          disabled={busy}
-          style={{ marginTop: ".5rem" }}
-        >
+        <button className="knopf" onClick={pruefen} disabled={busy} style={{ marginTop: ".5rem" }}>
           {busy ? "Prüfe …" : "Prüfen"}
         </button>
-        <p className="probecodes">
-          Zum Ausprobieren: RSL-VII-4820 · RSL-VII-1174
-        </p>
+        <p className="probecodes">Zum Ausprobieren: RSL-VII-4820 · RSL-VII-1174</p>
       </div>
 
       {invite && (
@@ -69,9 +65,7 @@ export default function EventClient() {
             Sitzung {invite.event.numeral} · Persönlich
           </span>
           <h3>
-            {invite.status === "declined"
-              ? "Schade."
-              : "Sie sind eingeladen."}
+            {invite.status === "declined" ? "Schade." : "Sie sind eingeladen."}
           </h3>
           <dl style={{ margin: 0 }}>
             <div className="zeile">
@@ -94,12 +88,7 @@ export default function EventClient() {
                 {invite.event.admissionNote && (
                   <>
                     <br />
-                    <span
-                      style={{
-                        color: "var(--kalk-matt)",
-                        fontSize: ".9rem",
-                      }}
-                    >
+                    <span style={{ color: "var(--kalk-matt)", fontSize: ".9rem" }}>
                       {invite.event.admissionNote}
                     </span>
                   </>
@@ -107,10 +96,8 @@ export default function EventClient() {
               </dd>
             </div>
             <div className="zeile">
-              <dt>Begleitung</dt>
-              <dd>
-                {invite.plusOnes} {invite.plusOnes === 1 ? "Person" : "Personen"}
-              </dd>
+              <dt>Gilt für</dt>
+              <dd>1 Person</dd>
             </div>
             {invite.event.speech && (
               <div className="zeile">
@@ -124,36 +111,46 @@ export default function EventClient() {
                 <dd>{invite.event.wineNote}</dd>
               </div>
             )}
+            {invite.status !== "declined" && (
+              <label className="zeile" style={{ cursor: "pointer", alignItems: "center" }}>
+                <dt>Begleitung</dt>
+                <dd style={{ display: "flex", alignItems: "center", gap: ".6rem" }}>
+                  <input
+                    type="checkbox"
+                    checked={companion}
+                    disabled={busy || invite.status === "accepted"}
+                    onChange={(e) => setCompanion(e.target.checked)}
+                    style={{ width: "auto", margin: 0 }}
+                  />
+                  <span>
+                    1 Person dazubuchen (+{formatCHF(invite.companionCents)})
+                  </span>
+                </dd>
+              </label>
+            )}
           </dl>
 
           {invite.status === "open" && (
-            <div
-              style={{
-                display: "flex",
-                gap: "1rem",
-                flexWrap: "wrap",
-                marginTop: "1.75rem",
-              }}
-            >
-              <button
-                className="knopf"
-                onClick={() => antwort("accept")}
-                disabled={busy}
-              >
-                Zusagen
+            <div style={{ display: "flex", gap: "1rem", flexWrap: "wrap", marginTop: "1.75rem" }}>
+              <button className="knopf" onClick={() => antwort("accept")} disabled={busy}>
+                {companion ? `Zusagen (${formatCHF(invite.companionCents)})` : "Zusagen"}
               </button>
-              <button
-                className="knopf knopf--still"
-                onClick={() => antwort("decline")}
-                disabled={busy}
-              >
+              <button className="knopf knopf--still" onClick={() => antwort("decline")} disabled={busy}>
                 Absagen
               </button>
             </div>
           )}
           {invite.status === "accepted" && (
             <p className="erfolg" style={{ marginTop: "1.5rem" }}>
-              Zugesagt. Wir freuen uns. Bringen Sie diesen Code am Tor mit.
+              Zugesagt{invite.companion ? " · mit Begleitung" : ""}. Wir freuen uns.
+              Bringen Sie diesen Code am Tor mit.
+              {invite.companion && (
+                <>
+                  {" "}
+                  Der Begleitungsbetrag ({formatCHF(invite.companionCents)}) wird
+                  erfasst; die Bezahlung folgt.
+                </>
+              )}
             </p>
           )}
           {invite.status === "declined" && (

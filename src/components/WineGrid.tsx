@@ -11,25 +11,31 @@ export default function WineGrid() {
   return (
     <div className="regal">
       {items.map((w) => (
-        <article className="flasche" key={w.id}>
-          <span className="marke">{w.herkunft}</span>
+        <article className={`flasche${w.special ? " flasche--special" : ""}`} key={w.id}>
+          <span className="marke">
+            {w.special ? "Eintritt in den Geheimrat" : w.herkunft}
+          </span>
           <span className="winzer">{w.winzer}</span>
           <span className="name">{w.name}</span>
-          <div className="preise">
-            {isMember ? (
-              <>
-                <span className="preis gold">{formatCHF(w.payCents)}</span>
-                <span className="preis preis--weg">{formatCHF(w.listCents)}</span>
-              </>
-            ) : (
-              <>
-                <span className="preis">{formatCHF(w.listCents)}</span>
-                <span className="preis preis--gr">
-                  Rat {formatCHF(w.payCents)}
-                </span>
-              </>
-            )}
-          </div>
+          {w.special ? (
+            <div className="preise">
+              <span className="preis gold">{formatCHF(w.listCents)}</span>
+            </div>
+          ) : (
+            <div className="preise">
+              {isMember ? (
+                <>
+                  <span className="preis gold">{formatCHF(w.payCents)}</span>
+                  <span className="preis preis--weg">{formatCHF(w.listCents)}</span>
+                </>
+              ) : (
+                <>
+                  <span className="preis">{formatCHF(w.listCents)}</span>
+                  <span className="preis preis--gr">Rat {formatCHF(w.payCents)}</span>
+                </>
+              )}
+            </div>
+          )}
           <button onClick={() => add(w.id)}>In den Korb</button>
         </article>
       ))}

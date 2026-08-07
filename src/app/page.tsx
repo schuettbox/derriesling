@@ -31,7 +31,7 @@ export default async function Home() {
             Eine Hommage an die eine Rebsorte, die den Boden verrät, auf dem sie
             steht. Wir versammeln uns an Orten, die etwas zu erzählen haben, hören
             einer Person zu, die dort etwas zu sagen hat — und degustieren danach
-            die Rieslinge, die zu diesem Ort gehören.
+            die Rieslinge, die zu diesem Ort passen.
           </p>
           {upcoming && (
             <div className="naechste">

@@ -73,10 +73,24 @@ async function main() {
     { numeral: "I", title: "«Was der Rhein transportiert»", location: "Rheinhafen Kleinhüningen", wineNote: "Baden, Kalkstein", status: "closed" },
   ]);
 
+  // ── «DerRiesling»-Flasche (Eintritt in den Geheimrat) ──────────
+  const [derriesling] = await db
+    .insert(schema.producers)
+    .values({ name: "DerRiesling", region: "Basel, CH", orderEmail: "post@derriesling.ch" })
+    .returning();
+  await db.insert(schema.wines).values({
+    producerId: derriesling.id,
+    winzer: "DerRiesling",
+    name: "«DerRiesling» — Flasche mit Geheimrat-Code · eine Teilnahme inbegriffen",
+    herkunft: "Basel, CH",
+    priceCents: 25000,
+    special: true,
+  });
+
   // ── Einladungscodes ────────────────────────────────────────────
   await db.insert(schema.invitations).values([
-    { code: "RSL-VII-4820", eventId: naechste.id, guestName: null, plusOnes: 1, status: "open" },
-    { code: "RSL-VII-1174", eventId: naechste.id, guestName: null, plusOnes: 1, status: "open" },
+    { code: "RSL-VII-4820", eventId: naechste.id, guestName: null, status: "open" },
+    { code: "RSL-VII-1174", eventId: naechste.id, guestName: null, status: "open" },
   ]);
 
   // ── Beispielkonto (Admin, zugleich Ratsmitglied) ───────────────

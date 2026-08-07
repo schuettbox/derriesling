@@ -12,9 +12,11 @@ export default function CartDrawer() {
   const [phase, setPhase] = useState<"cart" | "form" | "done">("cart");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ orderId: number; producerCount: number } | null>(
-    null
-  );
+  const [done, setDone] = useState<{
+    orderId: number;
+    producerCount: number;
+    councilCodes: string[];
+  } | null>(null);
   const [form, setForm] = useState({ name: "", email: "", address: "" });
 
   const byId = new Map(items.map((i) => [i.id, i]));
@@ -34,7 +36,11 @@ export default function CartDrawer() {
     });
     setBusy(false);
     if (res.ok) {
-      setDone({ orderId: res.orderId, producerCount: res.producerCount });
+      setDone({
+        orderId: res.orderId,
+        producerCount: res.producerCount,
+        councilCodes: res.councilCodes,
+      });
       setPhase("done");
       clear();
     } else {
@@ -196,9 +202,42 @@ export default function CartDrawer() {
               Sie erhalten eine Bestätigung per E-Mail. Der Versand erfolgt direkt
               vom jeweiligen Weingut.
             </p>
+
+            {done.councilCodes.length > 0 && (
+              <div
+                style={{
+                  marginTop: "1.25rem",
+                  border: "1px solid var(--mostgold)",
+                  padding: "1rem",
+                  background: "rgba(228,208,138,.08)",
+                }}
+              >
+                <span className="marke gold">
+                  {done.councilCodes.length === 1
+                    ? "Ihr Geheimrat-Code"
+                    : "Ihre Geheimrat-Codes"}
+                </span>
+                <p
+                  style={{
+                    fontFamily: "var(--mono)",
+                    color: "var(--mostgold)",
+                    fontSize: "1rem",
+                    margin: ".5rem 0",
+                    letterSpacing: ".1em",
+                  }}
+                >
+                  {done.councilCodes.join(" · ")}
+                </p>
+                <p style={{ fontSize: ".82rem", color: "var(--kalk-matt)", margin: 0 }}>
+                  Steht auch auf der Etikette. Im Konto unter «Geheimrat» einlösen —
+                  damit werden Sie Mitglied (eine Teilnahme inbegriffen).
+                </p>
+              </div>
+            )}
+
             <button
               className="knopf"
-              style={{ width: "100%", marginTop: "auto" }}
+              style={{ width: "100%", marginTop: "1.5rem" }}
               onClick={close}
             >
               Schliessen

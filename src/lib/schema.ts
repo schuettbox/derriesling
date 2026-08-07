@@ -49,6 +49,8 @@ export const wines = pgTable("wines", {
   // Preise in Rappen, um Rundungsfehler zu vermeiden
   priceCents: integer("price_cents").notNull(),
   active: boolean("active").notNull().default(true),
+  // Sonderprodukt: die «DerRiesling»-Flasche mit Geheimrat-Code auf der Etikette
+  special: boolean("special").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
 
@@ -90,8 +92,8 @@ export const invitations = pgTable("invitations", {
     .references(() => events.id),
   // Name der eingeladenen Person (optional, für die Karte)
   guestName: text("guest_name"),
-  // Erlaubte Begleitpersonen
-  plusOnes: integer("plus_ones").notNull().default(1),
+  // Einladung gilt für eine Person; eine Begleitung kann dazugekauft werden
+  companion: boolean("companion").notNull().default(false),
   status: inviteStatus("status").notNull().default("open"),
   respondedAt: timestamp("responded_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
@@ -123,7 +125,12 @@ export const attendance = pgTable(
       .notNull()
       .references(() => events.id),
     status: text("status").notNull().default("confirmed"),
-    plusOnes: integer("plus_ones").notNull().default(1),
+    // Wurde die inbegriffene (kostenlose) Teilnahme hier eingelöst?
+    included: boolean("included").notNull().default(false),
+    // Wurde eine Begleitung dazugebucht (+CHF 95)?
+    companion: boolean("companion").notNull().default(false),
+    // Zu zahlender Betrag in Rappen (0, wenn inbegriffen und ohne Begleitung)
+    amountCents: integer("amount_cents").notNull().default(0),
     createdAt: timestamp("created_at").notNull().defaultNow(),
   },
   (t) => ({
