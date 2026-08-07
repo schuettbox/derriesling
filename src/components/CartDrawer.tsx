@@ -115,7 +115,7 @@ export default function CartDrawer() {
               <span>{formatCHF(total)}</span>
             </div>
             <p style={{ fontSize: ".8rem", color: "var(--kalk-matt)" }}>
-              Der Versand erfolgt getrennt durch jedes Weingut.
+              Wir liefern Ihre Bestellung nach Hause.
             </p>
             <button
               className="knopf"
@@ -194,13 +194,12 @@ export default function CartDrawer() {
             <span className="marke gold">Bestätigt</span>
             <h3 style={{ margin: ".5rem 0 1rem" }}>Danke.</h3>
             <p>
-              Bestellung <b>#{done.orderId}</b> ist eingegangen und wurde an{" "}
-              {done.producerCount}{" "}
-              {done.producerCount === 1 ? "Weingut" : "Weingüter"} weitergeleitet.
+              Bestellung <b>#{done.orderId}</b> ist eingegangen. Wir kümmern uns
+              um die Lieferung.
             </p>
             <p style={{ color: "var(--kalk-matt)", fontSize: ".9rem" }}>
-              Sie erhalten eine Bestätigung per E-Mail. Der Versand erfolgt direkt
-              vom jeweiligen Weingut.
+              Sie erhalten eine Bestätigung per E-Mail. Wir melden uns mit den
+              Versanddetails.
             </p>
 
             {done.councilCodes.length > 0 && (

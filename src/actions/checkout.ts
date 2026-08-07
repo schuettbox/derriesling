@@ -156,7 +156,8 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
     councilCodes.push(await makeCouncilCode(`DerRiesling-Flasche · Bestellung #${order.id}`));
   }
 
-  // Pro Produzent eine Bestellmail (DerRiesling ist nur Vermittler)
+  // Bestellungen werden zum Start von DerRiesling selbst abgewickelt.
+  // (Direktversand durch die Weingüter kommt später.)
   const groups = new Map<number, typeof valid>();
   for (const i of valid) {
     const arr = groups.get(i.producerId) ?? [];
@@ -164,35 +165,26 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
     groups.set(i.producerId, arr);
   }
 
-  await Promise.all(
-    [...groups.values()].map(async (grp) => {
-      const p = grp[0];
-      const lines = grp
-        .map(
-          (i) =>
-            `  ${i.quantity} × ${i.winzer} — ${i.wineName}  (${formatCHF(
-              i.unitPriceCents
-            )}/Fl.)`
-        )
-        .join("\n");
-      const sum = grp.reduce(
-        (s, i) => s + i.unitPriceCents * i.quantity,
-        0
-      );
-      await sendMail({
-        to: p.producerEmail,
-        subject: `DerRiesling — Bestellung #${order.id}`,
-        text:
-          `Neue Bestellung über die Plattform DerRiesling.\n\n` +
-          `Bestellnummer: ${order.id}\n\n` +
-          `Bitte direkt an folgende Adresse versenden:\n` +
-          `${name}\n${address}\nE-Mail: ${email}\n\n` +
-          `Positionen (Ihr Weingut):\n${lines}\n\n` +
-          `Zwischensumme: ${formatCHF(sum)}\n\n` +
-          `Der Versand erfolgt durch Ihr Weingut. DerRiesling ist Vermittler.`,
-      });
-    })
-  );
+  const orderLines = valid
+    .map(
+      (i) =>
+        `  ${i.quantity} × ${i.winzer} — ${i.wineName}  (${formatCHF(
+          i.unitPriceCents
+        )}/Fl.)`
+    )
+    .join("\n");
+
+  await sendMail({
+    to: process.env.ADMIN_EMAIL ?? "post@derriesling.ch",
+    subject: `DerRiesling — Bestellung #${order.id}`,
+    text:
+      `Neue Bestellung über DerRiesling.\n\n` +
+      `Bestellnummer: ${order.id}\n\n` +
+      `Lieferadresse:\n${name}\n${address}\nE-Mail: ${email}\n\n` +
+      `Positionen:\n${orderLines}\n\n` +
+      `Summe: ${formatCHF(totalCents)}\n\n` +
+      `Versand: durch DerRiesling.`,
+  });
 
   // Bestätigung an Kundschaft (inkl. Geheimrat-Codes, falls Flasche gekauft)
   const codeBlock =
@@ -210,9 +202,8 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
     subject: `DerRiesling — Bestellbestätigung #${order.id}`,
     text:
       `Vielen Dank, ${name}.\n\n` +
-      `Ihre Bestellung #${order.id} ist eingegangen und wurde an die ` +
-      `jeweiligen Weingüter weitergeleitet. Der Versand erfolgt getrennt ` +
-      `durch jedes Weingut.\n\nSumme: ${formatCHF(totalCents)}` +
+      `Ihre Bestellung #${order.id} ist eingegangen. Wir wickeln den Versand ` +
+      `ab und liefern zu Ihnen nach Hause.\n\nSumme: ${formatCHF(totalCents)}` +
       codeBlock +
       `\n\n— DerRiesling`,
   });

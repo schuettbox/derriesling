@@ -13,14 +13,13 @@ export default async function ShopPage() {
         <div className="wrap">
           <div className="kopf">
             <h2>Die Weine</h2>
-            <span className="marke">Versand direkt vom Weingut</span>
+            <span className="marke">Lieferung nach Hause</span>
           </div>
           <WineGrid />
           <p className="hinweis">
-            DerRiesling ist Vermittler, nicht Händler. Jede Bestellung geht an das
-            jeweilige Weingut, das die Flaschen selbst versendet — auch wenn Sie
-            bei mehreren Betrieben bestellen. Mitglieder des Geheimrats zahlen den
-            Ratspreis.{" "}
+            Die Weine stammen von Weingütern, die wir schätzen. Zum Start wickeln
+            wir den Versand selbst ab und liefern zu Ihnen nach Hause. Mitglieder
+            des Geheimrats zahlen den Ratspreis.{" "}
             {member ? (
               <span className="gold">Ihr Ratspreis ist aktiv.</span>
             ) : (
