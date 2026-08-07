@@ -201,3 +201,9 @@ footer.site{border-top:var(--rand);padding:3rem 0 4rem;font-size:.85rem;color:va
 .formfehler{color:#E08A7A;font-family:var(--mono);font-size:.78rem;letter-spacing:.06em;margin:-.4rem 0 1rem}
 .badge{display:inline-block;font-family:var(--mono);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;
   border:1px solid var(--mostgold);color:var(--mostgold);padding:.2rem .5rem;border-radius:2px}
+
+/* ---------- Tabs (Anmelden / Konto erstellen) ---------- */
+.tab{background:none;border:0;padding:0 0 .4rem;color:var(--kalk-matt);
+  font-family:var(--mono);font-size:.7rem;letter-spacing:.16em;text-transform:uppercase;
+  border-bottom:2px solid transparent;transition:color .2s,border-color .2s}
+.tab[data-on="true"]{color:var(--mostgold);border-color:var(--mostgold)}

@@ -3,7 +3,7 @@ import WineGrid from "@/components/WineGrid";
 import Footer from "@/components/Footer";
 import { getAllEvents, getUpcomingEvent } from "@/lib/queries";
 import { getCurrentMember } from "@/lib/session";
-import { formatEventDate, formatShort } from "@/lib/date";
+import { formatShort } from "@/lib/date";
 
 export default async function Home() {
   const [events, upcoming, member] = await Promise.all([
@@ -12,6 +12,7 @@ export default async function Home() {
     getCurrentMember(),
   ]);
 
+  const isCouncil = !!member?.council;
   const nextLabel = upcoming
     ? `Sitzung ${upcoming.numeral} · ${formatShort(upcoming.startsAt)}`
     : "Sitzung folgt · Ort folgt";
@@ -38,13 +39,7 @@ export default async function Home() {
                 Sitzung {upcoming.numeral} · {formatShort(upcoming.startsAt)}
               </span>
               <b>{upcoming.location}</b>
-              <p
-                style={{
-                  margin: 0,
-                  color: "#C9C6BD",
-                  fontSize: ".95rem",
-                }}
-              >
+              <p style={{ margin: 0, color: "#C9C6BD", fontSize: ".95rem" }}>
                 {upcoming.title} — {upcoming.wineNote}. Zutritt nur mit Code.
               </p>
             </div>
@@ -98,10 +93,7 @@ export default async function Home() {
           {events.map((e) => {
             const jetzt = e.status === "upcoming";
             return (
-              <div
-                className={`reihe ${jetzt ? "reihe--jetzt" : ""}`}
-                key={e.id}
-              >
+              <div className={`reihe ${jetzt ? "reihe--jetzt" : ""}`} key={e.id}>
                 <span className="zahl">{e.numeral}</span>
                 <span className="ort">{e.location}</span>
                 <span className="thema">
@@ -109,9 +101,7 @@ export default async function Home() {
                   {e.wineNote ? ` · ${e.wineNote}` : ""}
                 </span>
                 <span className="stand">
-                  {jetzt
-                    ? `${formatShort(e.startsAt)} · Nächste`
-                    : "Geschlossen"}
+                  {jetzt ? `${formatShort(e.startsAt)} · Nächste` : "Geschlossen"}
                 </span>
               </div>
             );
@@ -119,8 +109,28 @@ export default async function Home() {
 
           <p className="hinweis">
             Jede Sitzung ist auf 40 Plätze begrenzt. Mitglieder des Geheimrats
-            sind immer eingeladen; alle anderen kommen auf Einladung. Ort und Zeit
-            stehen ausschliesslich auf der Einladung.
+            sind immer eingeladen und bestätigen ihre Teilnahme direkt im
+            Ratsbereich; einzelne Gäste kommen auf persönliche Einladung. Ort und
+            Zeit stehen ausschliesslich auf der Einladung.
+          </p>
+        </div>
+      </section>
+
+      {/* ============ EINLADUNG (direkt unter den Sitzungen) ============ */}
+      <section className="zone" id="einladung">
+        <div className="wrap">
+          <div className="kopf">
+            <h2>Einladung bestätigen</h2>
+            <span className="marke">derriesling.ch/event</span>
+          </div>
+          <p className="lead">
+            Sie haben eine persönliche Einladung mit einem Code erhalten? Er gilt
+            für eine Person und eine Begleitung, und nur für diese eine Sitzung.
+          </p>
+          <p style={{ marginTop: "2rem" }}>
+            <Link href="/event" className="knopf">
+              Code eingeben
+            </Link>
           </p>
         </div>
       </section>
@@ -138,7 +148,7 @@ export default async function Home() {
             jeweilige Weingut, das die Flaschen selbst versendet — auch wenn Sie
             bei mehreren Betrieben bestellen. Mitglieder des Geheimrats zahlen den
             Ratspreis.{" "}
-            {member ? (
+            {isCouncil ? (
               <span className="gold">Ihr Ratspreis ist aktiv.</span>
             ) : (
               <Link href="/geheimrat" className="gold">
@@ -153,7 +163,7 @@ export default async function Home() {
       <section className="zone geheimrat" id="geheimrat">
         <div className="wrap zwei">
           <div>
-            <span className="marke">Nur für Mitglieder</span>
+            <span className="marke">Der innere Kreis</span>
             <h2 style={{ margin: ".6rem 0 1.25rem" }}>Der Geheimrat</h2>
             <p className="lead">
               Vierzig Personen, die sich sonst nicht begegnen würden: eine
@@ -162,75 +172,40 @@ export default async function Home() {
               Sitzung.
             </p>
             <ul className="rechte-liste">
-              <li>Ort und Zeit der nächsten Sitzung, sobald sie feststehen</li>
-              <li>Fester Platz, plus eine Begleitung nach Anmeldung</li>
+              <li>Ein Konto genügt, um im Shop zu bestellen</li>
+              <li>Mitglied wird, wer den Code einer Rats-Flasche einlöst</li>
+              <li>Mitglieder bestätigen jede Sitzung direkt — ohne weiteren Code</li>
               <li>Ratspreis auf alle Weine im Shop</li>
-              <li>Das Protokoll: was gesagt und was getrunken wurde</li>
-              <li>Ein Vorschlagsrecht pro Jahr für ein neues Mitglied</li>
             </ul>
           </div>
           <div className="pforte">
             <span className="marke">Pforte</span>
-            <h3 style={{ margin: ".6rem 0 1.5rem" }}>
-              {member ? "Angemeldet" : "Anmelden"}
+            <h3 style={{ margin: ".6rem 0 1rem" }}>
+              {member ? (isCouncil ? "Mitglied" : "Angemeldet") : "Zugang"}
             </h3>
             {member ? (
               <p>
-                Willkommen zurück, {member.name}.
+                {isCouncil
+                  ? `Willkommen zurück, ${member.name}.`
+                  : `${member.name}, dein Konto ist aktiv — löse im Ratsbereich einen Flaschen-Code ein, um Mitglied zu werden.`}
                 <br />
                 <br />
-                <Link
-                  href="/geheimrat"
-                  className="knopf"
-                  style={{ width: "100%" }}
-                >
+                <Link href="/geheimrat" className="knopf" style={{ width: "100%" }}>
                   In den Ratsbereich
                 </Link>
               </p>
             ) : (
               <>
                 <p style={{ color: "var(--kalk-matt)" }}>
-                  Der Zugang ist Mitgliedern vorbehalten.
+                  Konto erstellen und im Shop bestellen — oder mit einem
+                  Flaschen-Code dem Rat beitreten.
                 </p>
-                <Link
-                  href="/geheimrat"
-                  className="knopf"
-                  style={{ width: "100%" }}
-                >
-                  Eintreten
+                <Link href="/geheimrat" className="knopf" style={{ width: "100%" }}>
+                  Konto / Anmelden
                 </Link>
-                <p
-                  style={{
-                    margin: "1.5rem 0 0",
-                    fontSize: ".85rem",
-                    color: "var(--kalk-matt)",
-                  }}
-                >
-                  Keine Mitgliedschaft? Der Rat nimmt keine Bewerbungen an. Man
-                  wird vorgeschlagen — meistens an einer Sitzung.
-                </p>
               </>
             )}
           </div>
-        </div>
-      </section>
-
-      {/* ============ EINLADUNG ============ */}
-      <section className="zone" id="einladung">
-        <div className="wrap">
-          <div className="kopf">
-            <h2>Einladung bestätigen</h2>
-            <span className="marke">derriesling.ch/event</span>
-          </div>
-          <p className="lead">
-            Sie haben einen Code erhalten. Er gilt für eine Person und eine
-            Begleitung, und nur für diese eine Sitzung.
-          </p>
-          <p style={{ marginTop: "2rem" }}>
-            <Link href="/event" className="knopf">
-              Code eingeben
-            </Link>
-          </p>
         </div>
       </section>
 

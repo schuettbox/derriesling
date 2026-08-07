@@ -1,11 +1,18 @@
-import LoginForm from "./LoginForm";
+import AuthPanel from "./AuthPanel";
+import RedeemForm from "./RedeemForm";
+import AttendanceButtons from "./AttendanceButtons";
+import CodeAdmin from "./CodeAdmin";
 import InviteAdmin from "./InviteAdmin";
-import MemberAdmin from "./MemberAdmin";
 import Footer from "@/components/Footer";
 import { getCurrentMember } from "@/lib/session";
 import { getUpcomingEvent, getAllEvents } from "@/lib/queries";
 import { logout } from "@/actions/auth";
 import { listMembers, listOrders } from "@/actions/admin";
+import {
+  getMyAttendance,
+  listMembershipCodes,
+  countOpenCodes,
+} from "@/actions/membership";
 import { formatEventDate } from "@/lib/date";
 import { db } from "@/lib/db";
 import { invitations, events as eventsT } from "@/lib/schema";
@@ -16,38 +23,67 @@ export const metadata = { title: "Geheimrat — DerRiesling" };
 export default async function GeheimratPage() {
   const member = await getCurrentMember();
 
-  /* ── Nicht angemeldet: Pforte ─────────────────────────────────── */
+  /* ── (1) Nicht angemeldet: Pforte mit Login/Registrierung ──────── */
   if (!member) {
     return (
       <>
         <section className="zone geheimrat" style={{ borderTop: "none" }}>
           <div className="wrap zwei">
             <div>
-              <span className="marke">Nur für Mitglieder</span>
+              <span className="marke">Der innere Kreis</span>
               <h2 style={{ margin: ".6rem 0 1.25rem" }}>Der Geheimrat</h2>
               <p className="lead">
-                Der Zugang ist Mitgliedern vorbehalten. Wer Mitglied ist, sieht
-                hier Ort und Zeit der nächsten Sitzung, das Protokoll der letzten
-                — und zahlt im Shop den Ratspreis.
+                Ein Konto genügt, um im Shop zu bestellen. Zum Geheimrat gehört,
+                wer eine Rats-Flasche geöffnet und den Code darin im Konto
+                eingelöst hat. Mitglieder bestätigen ihre Teilnahme an jeder
+                Sitzung direkt — und zahlen im Shop den Ratspreis.
               </p>
-              <p style={{ color: "var(--kalk-matt)", marginTop: "1.5rem" }}>
-                Keine Mitgliedschaft? Der Rat nimmt keine Bewerbungen an. Man wird
-                vorgeschlagen — meistens an einer Sitzung.
-              </p>
+              <ul className="rechte-liste">
+                <li>Registrieren wie ein normaler Kunde</li>
+                <li>Code von der Rats-Flasche im Konto einlösen</li>
+                <li>Danach: direkte Teilnahme an jeder Sitzung, ohne weiteren Code</li>
+                <li>Ratspreis auf alle Weine im Shop</li>
+              </ul>
             </div>
-            <div className="pforte">
-              <span className="marke">Pforte</span>
-              <h3 style={{ margin: ".6rem 0 1.5rem" }}>Anmelden</h3>
-              <LoginForm />
-              <p
-                style={{
-                  marginTop: "1.5rem",
-                  fontSize: ".8rem",
-                  color: "var(--kalk-matt)",
-                }}
-              >
-                Demo: post@derriesling.ch / riesling
-              </p>
+            <AuthPanel />
+          </div>
+        </section>
+        <Footer />
+      </>
+    );
+  }
+
+  const isAdmin = member.role === "admin";
+
+  /* ── (2) Angemeldet, aber (noch) kein Geheimrat: Kundenkonto ───── */
+  if (!member.council && !isAdmin) {
+    return (
+      <>
+        <section className="zone geheimrat" style={{ borderTop: "none" }}>
+          <div className="wrap">
+            <div className="kopf">
+              <div style={{ flex: "1 1 22ch" }}>
+                <span className="marke">Konto</span>
+                <h2 style={{ margin: ".4rem 0 0" }}>Willkommen, {member.name}</h2>
+              </div>
+              <form action={logout}>
+                <button className="knopf knopf--still">Abmelden</button>
+              </form>
+            </div>
+            <div className="zwei">
+              <div>
+                <p className="lead">
+                  Dein Konto ist aktiv — du kannst im Shop bestellen. Noch bist du
+                  kein Mitglied des Geheimrats.
+                </p>
+                <p style={{ color: "var(--kalk-matt)" }}>
+                  Der Weg hinein führt über eine Flasche: Auf jeder Rats-Flasche,
+                  die es an einer Sitzung gibt, steht ein einmaliger Code. Sobald
+                  du ihn hier einlöst, öffnet sich der Ratsbereich — mit Rabatt
+                  und direkter Teilnahme.
+                </p>
+              </div>
+              <RedeemForm />
             </div>
           </div>
         </section>
@@ -56,29 +92,31 @@ export default async function GeheimratPage() {
     );
   }
 
-  /* ── Angemeldet: Ratsbereich ──────────────────────────────────── */
+  /* ── (3) + (4) Geheimrat / Admin ───────────────────────────────── */
   const upcoming = await getUpcomingEvent();
-  const isAdmin = member.role === "admin";
-  const allEvents = isAdmin ? await getAllEvents() : [];
+  const myAttendance = upcoming ? await getMyAttendance(upcoming.id) : null;
 
-  const [invites, memberList, orderList] = isAdmin
-    ? await Promise.all([
-        db
-          .select({
-            code: invitations.code,
-            status: invitations.status,
-            guestName: invitations.guestName,
-            plusOnes: invitations.plusOnes,
-            numeral: eventsT.numeral,
-          })
-          .from(invitations)
-          .innerJoin(eventsT, eq(invitations.eventId, eventsT.id))
-          .orderBy(desc(invitations.id))
-          .limit(50),
-        listMembers(),
-        listOrders(),
-      ])
-    : [[], [], []];
+  const [allEvents, invites, memberList, orderList, codeList, openCodes] =
+    isAdmin
+      ? await Promise.all([
+          getAllEvents(),
+          db
+            .select({
+              code: invitations.code,
+              status: invitations.status,
+              guestName: invitations.guestName,
+              numeral: eventsT.numeral,
+            })
+            .from(invitations)
+            .innerJoin(eventsT, eq(invitations.eventId, eventsT.id))
+            .orderBy(desc(invitations.id))
+            .limit(50),
+          listMembers(),
+          listOrders(),
+          listMembershipCodes(),
+          countOpenCodes(),
+        ])
+      : [[], [], [], [], [], 0];
 
   return (
     <>
@@ -86,7 +124,9 @@ export default async function GeheimratPage() {
         <div className="wrap">
           <div className="kopf">
             <div style={{ flex: "1 1 22ch" }}>
-              <span className="marke">Ratsbereich · vertraulich</span>
+              <span className="marke">
+                {isAdmin ? "Ratsbereich · Verwaltung" : "Ratsbereich · vertraulich"}
+              </span>
               <h2 style={{ margin: ".4rem 0 0" }}>Willkommen, {member.name}</h2>
             </div>
             <form action={logout}>
@@ -94,7 +134,7 @@ export default async function GeheimratPage() {
             </form>
           </div>
 
-          {/* Nächste Sitzung — vollständige, vertrauliche Angaben */}
+          {/* Nächste Sitzung mit direkter Teilnahmebestätigung */}
           {upcoming ? (
             <div className="karte" style={{ marginTop: 0 }}>
               <span className="marke gold">
@@ -122,12 +162,7 @@ export default async function GeheimratPage() {
                     {upcoming.admissionNote && (
                       <>
                         <br />
-                        <span
-                          style={{
-                            color: "var(--kalk-matt)",
-                            fontSize: ".9rem",
-                          }}
-                        >
+                        <span style={{ color: "var(--kalk-matt)", fontSize: ".9rem" }}>
                           {upcoming.admissionNote}
                         </span>
                       </>
@@ -146,23 +181,22 @@ export default async function GeheimratPage() {
                     <dd>{upcoming.wineNote}</dd>
                   </div>
                 )}
-                <div className="zeile">
-                  <dt>Ihr Platz</dt>
-                  <dd>Fest reserviert · plus eine Begleitung</dd>
-                </div>
               </dl>
+
+              <AttendanceButtons eventId={upcoming.id} initial={myAttendance} />
+
               <p className="siegel">
-                Ihr Ratspreis (−{member.discountPct}%) gilt automatisch im Shop.
+                Ratspreis (−{member.discountPct}%) gilt automatisch im Shop.
               </p>
             </div>
           ) : (
             <p className="lead">
-              Die nächste Sitzung steht noch nicht fest. Sie erfahren Ort und Zeit
-              hier zuerst.
+              Die nächste Sitzung steht noch nicht fest. Als Mitglied erfährst du
+              Ort und Zeit hier zuerst.
             </p>
           )}
 
-          {/* Protokoll (Auszug) */}
+          {/* Protokoll */}
           <div style={{ marginTop: "3.5rem" }}>
             <span className="marke">Aus dem Protokoll</span>
             <h3 style={{ margin: ".5rem 0 1rem" }}>Sitzung VI, Krypta</h3>
@@ -174,16 +208,42 @@ export default async function GeheimratPage() {
             </p>
           </div>
 
-          {/* Verwaltung */}
+          {/* ── Verwaltung (nur Admin) ── */}
           {isAdmin && (
-            <div style={{ marginTop: "3.5rem" }}>
+            <div style={{ marginTop: "4rem" }}>
               <div className="kopf">
                 <h2>Verwaltung</h2>
-                <span className="marke">Nur Admin</span>
+                <span className="marke">
+                  {openCodes} Codes offen · {memberList.length} Konten
+                </span>
               </div>
 
-              {/* Einladungen */}
+              {/* Geheimrat-Codes */}
               <div className="zwei">
+                <CodeAdmin />
+                <div>
+                  <span className="marke">Ausgegebene Geheimrat-Codes</span>
+                  <ul className="rechte-liste">
+                    {codeList.length === 0 && <li>Noch keine Codes erzeugt.</li>}
+                    {codeList.slice(0, 20).map((c) => (
+                      <li key={c.code}>
+                        <span style={{ flex: 1 }}>
+                          <span className="gold" style={{ fontFamily: "var(--mono)" }}>
+                            {c.code}
+                          </span>
+                          {c.note ? <span className="marke"> {c.note}</span> : null}
+                        </span>
+                        <span className="marke">
+                          {c.redeemed ? "eingelöst" : "offen"}
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+
+              {/* Einladungen für individuelle Gäste */}
+              <div className="zwei" style={{ marginTop: "3rem" }}>
                 <InviteAdmin
                   events={allEvents.map((e) => ({
                     id: e.id,
@@ -192,11 +252,9 @@ export default async function GeheimratPage() {
                   }))}
                 />
                 <div>
-                  <span className="marke">Ausgegebene Codes</span>
+                  <span className="marke">Persönliche Einladungen</span>
                   <ul className="rechte-liste">
-                    {invites.length === 0 && (
-                      <li>Noch keine Einladungen ausgegeben.</li>
-                    )}
+                    {invites.length === 0 && <li>Noch keine Einladungen.</li>}
                     {invites.map((i) => (
                       <li key={i.code}>
                         <span style={{ flex: 1 }}>
@@ -213,26 +271,26 @@ export default async function GeheimratPage() {
                 </div>
               </div>
 
-              {/* Mitglieder */}
-              <div className="zwei" style={{ marginTop: "3rem" }}>
-                <MemberAdmin />
-                <div>
-                  <span className="marke">Mitglieder des Rats</span>
-                  <ul className="rechte-liste">
-                    {memberList.length === 0 && <li>Noch keine Mitglieder.</li>}
-                    {memberList.map((m) => (
-                      <li key={m.id}>
-                        <span style={{ flex: 1 }}>
-                          {m.name}{" "}
-                          <span className="marke">{m.email}</span>
-                        </span>
-                        <span className="marke">
-                          {m.role === "admin" ? "Admin" : `−${m.discountPct}%`}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
+              {/* Konten */}
+              <div style={{ marginTop: "3rem" }}>
+                <span className="marke">Konten</span>
+                <ul className="rechte-liste">
+                  {memberList.length === 0 && <li>Noch keine Konten.</li>}
+                  {memberList.map((m) => (
+                    <li key={m.id}>
+                      <span style={{ flex: 1 }}>
+                        {m.name} <span className="marke">{m.email}</span>
+                      </span>
+                      <span className="marke">
+                        {m.role === "admin"
+                          ? "Admin"
+                          : m.council
+                            ? `Rat · −${m.discountPct}%`
+                            : "Kunde"}
+                      </span>
+                    </li>
+                  ))}
+                </ul>
               </div>
 
               {/* Bestellungen */}
@@ -247,10 +305,7 @@ export default async function GeheimratPage() {
                     {orderList.map((o) => (
                       <details
                         key={o.id}
-                        style={{
-                          borderTop: "var(--rand)",
-                          padding: "1rem 0",
-                        }}
+                        style={{ borderTop: "var(--rand)", padding: "1rem 0" }}
                       >
                         <summary
                           style={{
@@ -261,10 +316,7 @@ export default async function GeheimratPage() {
                             alignItems: "baseline",
                           }}
                         >
-                          <span
-                            className="gold"
-                            style={{ fontFamily: "var(--mono)", minWidth: "3rem" }}
-                          >
+                          <span className="gold" style={{ fontFamily: "var(--mono)", minWidth: "3rem" }}>
                             #{o.id}
                           </span>
                           <span style={{ flex: 1 }}>

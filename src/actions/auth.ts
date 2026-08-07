@@ -34,3 +34,49 @@ export async function logout() {
   await destroySession();
   redirect("/");
 }
+
+export type RegisterState = { error?: string };
+
+/** Normale Kunden-Registrierung. Erst mit eingelöstem Code wird man Geheimrat. */
+export async function register(
+  _prev: RegisterState,
+  formData: FormData
+): Promise<RegisterState> {
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").trim().toLowerCase();
+  const password = String(formData.get("password") ?? "");
+
+  if (!name || !email || !password) {
+    return { error: "Bitte Name, E-Mail und Passwort angeben." };
+  }
+  if (!/.+@.+\..+/.test(email)) {
+    return { error: "Bitte eine gültige E-Mail-Adresse angeben." };
+  }
+  if (password.length < 6) {
+    return { error: "Das Passwort muss mindestens 6 Zeichen haben." };
+  }
+
+  const existing = await db
+    .select({ id: members.id })
+    .from(members)
+    .where(eq(members.email, email));
+  if (existing.length) {
+    return { error: "Für diese E-Mail besteht bereits ein Konto." };
+  }
+
+  const hash = await bcrypt.hash(password, 10);
+  const [created] = await db
+    .insert(members)
+    .values({
+      name,
+      email,
+      passwordHash: hash,
+      role: "customer",
+      council: false,
+      discountPct: 15,
+    })
+    .returning();
+
+  await createSession(created.id, created.email);
+  redirect("/geheimrat");
+}

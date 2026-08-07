@@ -5,19 +5,24 @@ import {
   integer,
   timestamp,
   boolean,
-  numeric,
   pgEnum,
+  unique,
 } from "drizzle-orm/pg-core";
 
-/* ── Geheimrat-Mitglieder ───────────────────────────────────────── */
+/* ── Konten (Kunden & Geheimrat) ─────────────────────────────────
+   Jede Person registriert sich zunächst als Kunde. Wird ein gültiger
+   Geheimrat-Code im Konto eingelöst, wird `council` = true — dann gilt
+   der Rabatt und die direkte Teilnahmebestätigung.                  */
 export const members = pgTable("members", {
   id: serial("id").primaryKey(),
   email: text("email").notNull().unique(),
   passwordHash: text("password_hash").notNull(),
   name: text("name").notNull(),
-  // Rolle: 'member' = Ratsmitglied, 'admin' = Verwaltung
-  role: text("role").notNull().default("member"),
-  // Rabatt in Prozent auf den Katalogpreis (Ratspreis)
+  // Rolle: 'customer' = normales Konto, 'admin' = Verwaltung
+  role: text("role").notNull().default("customer"),
+  // Geheimratsstatus (durch Code-Einlösung freigeschaltet)
+  council: boolean("council").notNull().default(false),
+  // Rabatt in Prozent auf den Katalogpreis (nur wirksam bei council=true)
   discountPct: integer("discount_pct").notNull().default(15),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
@@ -91,6 +96,40 @@ export const invitations = pgTable("invitations", {
   respondedAt: timestamp("responded_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 });
+
+/* ── Geheimrat-Codes (Einmal-Codes von den Flaschen) ─────────────
+   Beim ersten Event verkaufte Flaschen tragen je einen Code. Wird er
+   im Konto eingelöst, erhält das Konto Geheimratsstatus.            */
+export const membershipCodes = pgTable("membership_codes", {
+  id: serial("id").primaryKey(),
+  code: text("code").notNull().unique(),
+  note: text("note"),
+  redeemedByMemberId: integer("redeemed_by_member_id").references(
+    () => members.id
+  ),
+  redeemedAt: timestamp("redeemed_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+/* ── Teilnahme an Sitzungen (direkte Bestätigung für Mitglieder) ── */
+export const attendance = pgTable(
+  "attendance",
+  {
+    id: serial("id").primaryKey(),
+    memberId: integer("member_id")
+      .notNull()
+      .references(() => members.id),
+    eventId: integer("event_id")
+      .notNull()
+      .references(() => events.id),
+    status: text("status").notNull().default("confirmed"),
+    plusOnes: integer("plus_ones").notNull().default(1),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => ({
+    uniqMemberEvent: unique("attendance_member_event").on(t.memberId, t.eventId),
+  })
+);
 
 /* ── Bestellungen ───────────────────────────────────────────────── */
 export const orders = pgTable("orders", {

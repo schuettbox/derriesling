@@ -57,13 +57,15 @@ export async function checkout(input: CheckoutInput): Promise<CheckoutResult> {
   const byId = new Map(rows.map((r) => [r.id, r]));
 
   const member = await getCurrentMember();
-  const discount = member?.discountPct ?? 0;
+  // Rabatt nur für Geheimrat-Mitglieder
+  const isCouncil = !!member?.council;
+  const discount = isCouncil ? member!.discountPct : 0;
 
   // Positionen berechnen
   const items = cleanLines.map((l) => {
     const w = byId.get(l.wineId);
     if (!w || !w.active) return null;
-    const unit = member ? memberPriceCents(w.priceCents, discount) : w.priceCents;
+    const unit = isCouncil ? memberPriceCents(w.priceCents, discount) : w.priceCents;
     return {
       wineId: w.id,
       producerId: w.producerId,

@@ -58,7 +58,8 @@ export async function createMember(input: {
     name,
     email,
     passwordHash: hash,
-    role: "member",
+    role: "customer",
+    council: true,
     discountPct: discount,
   });
 
@@ -89,6 +90,7 @@ export type MemberRow = {
   name: string;
   email: string;
   role: string;
+  council: boolean;
   discountPct: number;
 };
 
@@ -101,6 +103,7 @@ export async function listMembers(): Promise<MemberRow[]> {
       name: members.name,
       email: members.email,
       role: members.role,
+      council: members.council,
       discountPct: members.discountPct,
     })
     .from(members)

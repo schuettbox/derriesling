@@ -27,7 +27,8 @@ export default async function RootLayout({
 
   try {
     member = await getCurrentMember();
-    catalog = await getCatalog(member?.discountPct ?? null);
+    // Rabatt nur für Geheimrat-Mitglieder (council)
+    catalog = await getCatalog(member?.council ? member.discountPct : null);
   } catch (e) {
     dbError = e instanceof Error ? e.message : String(e);
   }
@@ -46,9 +47,9 @@ export default async function RootLayout({
   return (
     <html lang="de-CH">
       <body>
-        <CatalogProvider items={catalog} isMember={!!member}>
+        <CatalogProvider items={catalog} isMember={!!member?.council}>
           <CartProvider>
-            <Header isMember={!!member} />
+            <Header />
             {children}
             <CartDrawer />
           </CartProvider>

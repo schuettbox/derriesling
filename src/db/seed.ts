@@ -79,19 +79,27 @@ async function main() {
     { code: "RSL-VII-1174", eventId: naechste.id, guestName: null, plusOnes: 1, status: "open" },
   ]);
 
-  // ── Beispielkonto (Admin) ──────────────────────────────────────
+  // ── Beispielkonto (Admin, zugleich Ratsmitglied) ───────────────
   const pw = await bcrypt.hash("riesling", 10);
   await db.insert(schema.members).values({
     email: "post@derriesling.ch",
     passwordHash: pw,
     name: "Der Rat",
     role: "admin",
+    council: true,
     discountPct: 15,
   });
 
+  // ── Beispiel-Geheimrat-Codes (wie auf den Flaschen) ────────────
+  await db.insert(schema.membershipCodes).values([
+    { code: "RAT-AAA-111", note: "Demo — Rats-Flasche" },
+    { code: "RAT-BBB-222", note: "Demo — Rats-Flasche" },
+  ]);
+
   console.log("Seed fertig.");
-  console.log("Login-Demo:  post@derriesling.ch / riesling");
-  console.log("Codes:       RSL-VII-4820 · RSL-VII-1174");
+  console.log("Login-Demo:       post@derriesling.ch / riesling");
+  console.log("Einladungscodes:  RSL-VII-4820 · RSL-VII-1174");
+  console.log("Geheimrat-Codes:  RAT-AAA-111 · RAT-BBB-222");
 }
 
 main().catch((e) => {

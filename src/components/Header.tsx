@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCart } from "./CartProvider";
 
-export default function Header({ isMember }: { isMember: boolean }) {
+export default function Header() {
   const { count, setOpen } = useCart();
   return (
     <header className="site">
@@ -12,16 +12,13 @@ export default function Header({ isMember }: { isMember: boolean }) {
           Der<span>Riesling</span>
         </Link>
         <nav className="site">
-          <Link href="/#sitzungen" className="nav-weit">
-            Sitzungen
-          </Link>
           <Link href="/shop" className="nav-weit">
             Weine
           </Link>
           <Link href="/geheimrat" className="nav-weit">
-            {isMember ? "Rat" : "Geheimrat"}
+            Geheimrat
           </Link>
-          <Link href="/event">Einladung</Link>
+          <Link href="/#sitzungen">Sitzungen</Link>
           <button className="korb-knopf" onClick={() => setOpen(true)}>
             Korb <span>{count}</span>
           </button>

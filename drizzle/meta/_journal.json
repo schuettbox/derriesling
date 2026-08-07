@@ -8,6 +8,13 @@
       "when": 1785164183703,
       "tag": "0000_sparkling_boom_boom",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786112794811,
+      "tag": "0001_membership_model",
+      "breakpoints": true
     }
   ]
 }

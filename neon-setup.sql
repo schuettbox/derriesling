@@ -61,9 +61,30 @@ CREATE TABLE IF NOT EXISTS "members" (
   "email" text NOT NULL UNIQUE,
   "password_hash" text NOT NULL,
   "name" text NOT NULL,
-  "role" text DEFAULT 'member' NOT NULL,
+  "role" text DEFAULT 'customer' NOT NULL,
+  "council" boolean DEFAULT false NOT NULL,
   "discount_pct" integer DEFAULT 15 NOT NULL,
   "created_at" timestamp DEFAULT now() NOT NULL
+);
+ALTER TABLE "members" ADD COLUMN IF NOT EXISTS "council" boolean DEFAULT false NOT NULL;
+
+CREATE TABLE IF NOT EXISTS "membership_codes" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "code" text NOT NULL UNIQUE,
+  "note" text,
+  "redeemed_by_member_id" integer REFERENCES "members"("id"),
+  "redeemed_at" timestamp,
+  "created_at" timestamp DEFAULT now() NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS "attendance" (
+  "id" serial PRIMARY KEY NOT NULL,
+  "member_id" integer NOT NULL REFERENCES "members"("id"),
+  "event_id" integer NOT NULL REFERENCES "events"("id"),
+  "status" text DEFAULT 'confirmed' NOT NULL,
+  "plus_ones" integer DEFAULT 1 NOT NULL,
+  "created_at" timestamp DEFAULT now() NOT NULL,
+  CONSTRAINT "attendance_member_event" UNIQUE ("member_id","event_id")
 );
 
 CREATE TABLE IF NOT EXISTS "orders" (
@@ -140,9 +161,17 @@ SELECT c.code, e.id, 1, 'open' FROM (VALUES
 JOIN "events" e ON e.numeral = 'VII'
 WHERE NOT EXISTS (SELECT 1 FROM "invitations");
 
--- Admin-/Demo-Login:  post@derriesling.ch / riesling
-INSERT INTO "members" ("email","password_hash","name","role","discount_pct")
+-- Admin-/Demo-Login:  post@derriesling.ch / riesling  (zugleich Ratsmitglied)
+INSERT INTO "members" ("email","password_hash","name","role","council","discount_pct")
 SELECT 'post@derriesling.ch',
        '$2a$10$g1geTmIQRE.oDK2wRMUCGunZ2tAQWMlSzz/ucOHy41lOdn1tCSmP2',
-       'Der Rat','admin',15
+       'Der Rat','admin',true,15
 WHERE NOT EXISTS (SELECT 1 FROM "members" WHERE email='post@derriesling.ch');
+
+-- Beispiel-Geheimrat-Codes (wie auf den Rats-Flaschen)
+INSERT INTO "membership_codes" ("code","note")
+SELECT * FROM (VALUES
+  ('RAT-AAA-111','Demo — Rats-Flasche'),
+  ('RAT-BBB-222','Demo — Rats-Flasche')
+) AS c(code,note)
+WHERE NOT EXISTS (SELECT 1 FROM "membership_codes");

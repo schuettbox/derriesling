@@ -7,6 +7,7 @@ import {
   events,
   invitations,
   members,
+  membershipCodes,
 } from "@/lib/schema";
 
 export const runtime = "nodejs";
@@ -69,10 +70,13 @@ const DDL: string[] = [
     "email" text NOT NULL UNIQUE,
     "password_hash" text NOT NULL,
     "name" text NOT NULL,
-    "role" text DEFAULT 'member' NOT NULL,
+    "role" text DEFAULT 'customer' NOT NULL,
+    "council" boolean DEFAULT false NOT NULL,
     "discount_pct" integer DEFAULT 15 NOT NULL,
     "created_at" timestamp DEFAULT now() NOT NULL
   );`,
+  // Migration für bereits bestehende Datenbanken
+  `ALTER TABLE "members" ADD COLUMN IF NOT EXISTS "council" boolean DEFAULT false NOT NULL;`,
   `CREATE TABLE IF NOT EXISTS "orders" (
     "id" serial PRIMARY KEY NOT NULL,
     "member_id" integer REFERENCES "members"("id"),
@@ -90,6 +94,23 @@ const DDL: string[] = [
     "producer_id" integer NOT NULL REFERENCES "producers"("id"),
     "quantity" integer NOT NULL,
     "unit_price_cents" integer NOT NULL
+  );`,
+  `CREATE TABLE IF NOT EXISTS "membership_codes" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "code" text NOT NULL UNIQUE,
+    "note" text,
+    "redeemed_by_member_id" integer REFERENCES "members"("id"),
+    "redeemed_at" timestamp,
+    "created_at" timestamp DEFAULT now() NOT NULL
+  );`,
+  `CREATE TABLE IF NOT EXISTS "attendance" (
+    "id" serial PRIMARY KEY NOT NULL,
+    "member_id" integer NOT NULL REFERENCES "members"("id"),
+    "event_id" integer NOT NULL REFERENCES "events"("id"),
+    "status" text DEFAULT 'confirmed' NOT NULL,
+    "plus_ones" integer DEFAULT 1 NOT NULL,
+    "created_at" timestamp DEFAULT now() NOT NULL,
+    CONSTRAINT "attendance_member_event" UNIQUE ("member_id","event_id")
   );`,
 ];
 
@@ -167,7 +188,7 @@ async function runSetup() {
     { code: "RSL-VII-1174", eventId: naechste.id, plusOnes: 1, status: "open" },
   ]);
 
-  // Admin-/Demo-Login
+  // Admin-/Demo-Login (Admin ist zugleich Ratsmitglied)
   await db
     .insert(members)
     .values({
@@ -175,15 +196,26 @@ async function runSetup() {
       passwordHash: ADMIN_HASH,
       name: "Der Rat",
       role: "admin",
+      council: true,
       discountPct: 15,
     })
+    .onConflictDoNothing();
+
+  // Beispiel-Geheimrat-Codes (wie sie auf den Flaschen stünden)
+  await db
+    .insert(membershipCodes)
+    .values([
+      { code: "RAT-AAA-111", note: "Demo — Rats-Flasche" },
+      { code: "RAT-BBB-222", note: "Demo — Rats-Flasche" },
+    ])
     .onConflictDoNothing();
 
   return {
     seeded: true,
     message: "Datenbank eingerichtet und befüllt.",
     login: "post@derriesling.ch / riesling",
-    codes: ["RSL-VII-4820", "RSL-VII-1174"],
+    einladungscodes: ["RSL-VII-4820", "RSL-VII-1174"],
+    geheimratscodes: ["RAT-AAA-111", "RAT-BBB-222"],
   };
 }
 
