@@ -171,10 +171,10 @@ export default async function Home() {
               Sitzung.
             </p>
             <ul className="rechte-liste">
-              <li>Ein Konto genügt, um im Shop zu bestellen</li>
-              <li>Mitglied wird, wer den Code einer Rats-Flasche einlöst</li>
-              <li>Mitglieder bestätigen jede Sitzung direkt — ohne weiteren Code</li>
-              <li>Ratspreis auf alle Weine im Shop</li>
+              <li>Im Shop bestellen ohne Konto — nur Adresse und Bezahlung</li>
+              <li>Mitglied wird, wer eine DerRiesling-Flasche kauft und den Code registriert</li>
+              <li>Mitglieder bestätigen jede Sitzung direkt und zahlen den Ratspreis</li>
+              <li>Im Konto: Übersicht über Bestellungen und Sitzungen</li>
             </ul>
           </div>
           <div className="pforte">
@@ -184,9 +184,7 @@ export default async function Home() {
             </h3>
             {member ? (
               <p>
-                {isCouncil
-                  ? `Willkommen zurück, ${member.name}.`
-                  : `${member.name}, dein Konto ist aktiv — löse im Ratsbereich einen Flaschen-Code ein, um Mitglied zu werden.`}
+                Willkommen zurück, {member.name}.
                 <br />
                 <br />
                 <Link href="/geheimrat" className="knopf" style={{ width: "100%" }}>
@@ -196,11 +194,12 @@ export default async function Home() {
             ) : (
               <>
                 <p style={{ color: "var(--kalk-matt)" }}>
-                  Konto erstellen und im Shop bestellen — oder mit einem
-                  Flaschen-Code dem Rat beitreten.
+                  Der Zugang braucht einen Code von einer DerRiesling-Flasche —
+                  damit registrieren Sie Ihr Konto. Danach genügen E-Mail und
+                  Passwort.
                 </p>
                 <Link href="/geheimrat" className="knopf" style={{ width: "100%" }}>
-                  Konto / Anmelden
+                  Anmelden / Registrieren
                 </Link>
               </>
             )}

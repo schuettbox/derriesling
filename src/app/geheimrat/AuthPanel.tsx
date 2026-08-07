@@ -40,6 +40,15 @@ export default function AuthPanel() {
         </form>
       ) : (
         <form action={regAction}>
+          <label className="marke" htmlFor="r-code">Geheimrat-Code</label>
+          <input
+            id="r-code"
+            name="code"
+            data-mono
+            placeholder="RAT-XXX-XXX"
+            style={{ textTransform: "uppercase" }}
+            autoComplete="off"
+          />
           <label className="marke" htmlFor="r-name">Name</label>
           <input id="r-name" name="name" placeholder="Vor- und Nachname" autoComplete="name" />
           <label className="marke" htmlFor="r-email">E-Mail</label>
@@ -51,8 +60,8 @@ export default function AuthPanel() {
             {regPending ? "Lege an …" : "Konto erstellen"}
           </button>
           <p style={{ marginTop: "1rem", fontSize: ".82rem", color: "var(--kalk-matt)" }}>
-            Ein normales Konto genügt für den Shop. Geheimrat-Status erhältst du,
-            indem du im Konto einen Code von einer Rats-Flasche einlöst.
+            Der Code steht auf Ihrer DerRiesling-Flasche und wird einmalig für die
+            Registrierung gebraucht. Danach genügen E-Mail und Passwort.
           </p>
         </form>
       )}

@@ -2,10 +2,17 @@
 
 import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
-import { members, membershipCodes, attendance } from "@/lib/schema";
+import {
+  members,
+  membershipCodes,
+  attendance,
+  orders,
+  orderItems,
+  wines,
+} from "@/lib/schema";
 import { eq, and, desc, isNull, ne } from "drizzle-orm";
 import { getCurrentMember } from "@/lib/session";
-import { TICKET_CENTS } from "@/lib/price";
+import { TICKET_CENTS, formatCHF } from "@/lib/price";
 
 /* ── Geheimrat-Code im Konto einlösen ───────────────────────────── */
 export type RedeemResult =
@@ -149,6 +156,55 @@ export async function includedAppliesTo(eventId: number): Promise<boolean> {
   const me = await getCurrentMember();
   if (!me?.council) return false;
   return !(await includedUsedElsewhere(me.id, eventId));
+}
+
+/* ── Eigene Bestellübersicht (im Konto) ─────────────────────────── */
+export type MyOrderRow = {
+  id: number;
+  createdAt: string;
+  totalLabel: string;
+  items: { label: string; lineLabel: string }[];
+};
+
+export async function listMyOrders(): Promise<MyOrderRow[]> {
+  const me = await getCurrentMember();
+  if (!me) return [];
+
+  const orderRows = await db
+    .select()
+    .from(orders)
+    .where(eq(orders.memberId, me.id))
+    .orderBy(desc(orders.id))
+    .limit(50);
+  if (orderRows.length === 0) return [];
+
+  const itemRows = await db
+    .select({
+      orderId: orderItems.orderId,
+      qty: orderItems.quantity,
+      unit: orderItems.unitPriceCents,
+      winzer: wines.winzer,
+      name: wines.name,
+    })
+    .from(orderItems)
+    .innerJoin(wines, eq(orderItems.wineId, wines.id));
+
+  const byOrder = new Map<number, MyOrderRow["items"]>();
+  for (const it of itemRows) {
+    const arr = byOrder.get(it.orderId) ?? [];
+    arr.push({
+      label: `${it.winzer} — ${it.name}`,
+      lineLabel: `${it.qty} × ${formatCHF(it.unit)}`,
+    });
+    byOrder.set(it.orderId, arr);
+  }
+
+  return orderRows.map((o) => ({
+    id: o.id,
+    createdAt: o.createdAt.toISOString().slice(0, 10),
+    totalLabel: formatCHF(o.totalCents),
+    items: byOrder.get(o.id) ?? [],
+  }));
 }
 
 /* ── Admin: Geheimrat-Codes erzeugen (für die Flaschen) ─────────── */

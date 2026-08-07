@@ -1,5 +1,4 @@
 import AuthPanel from "./AuthPanel";
-import RedeemForm from "./RedeemForm";
 import AttendanceButtons from "./AttendanceButtons";
 import CodeAdmin from "./CodeAdmin";
 import InviteAdmin from "./InviteAdmin";
@@ -13,6 +12,7 @@ import {
   includedAppliesTo,
   listMembershipCodes,
   countOpenCodes,
+  listMyOrders,
 } from "@/actions/membership";
 import { formatEventDate } from "@/lib/date";
 import { TICKET_CENTS } from "@/lib/price";
@@ -35,15 +35,15 @@ export default async function GeheimratPage() {
               <span className="marke">Der innere Kreis</span>
               <h2 style={{ margin: ".6rem 0 1.25rem" }}>Der Geheimrat</h2>
               <p className="lead">
-                Ein Konto genügt, um im Shop zu bestellen. Zum Geheimrat gehört,
-                wer eine Rats-Flasche geöffnet und den Code darin im Konto
-                eingelöst hat. Mitglieder bestätigen ihre Teilnahme an jeder
-                Sitzung direkt — und zahlen im Shop den Ratspreis.
+                Zum Geheimrat gehört, wer eine DerRiesling-Flasche geöffnet hat:
+                Der Code auf der Etikette wird einmalig für die Registrierung
+                gebraucht. Danach haben Sie ein Konto mit Übersicht über Ihre
+                Bestellungen und Sitzungen — und zahlen im Shop den Ratspreis.
               </p>
               <ul className="rechte-liste">
-                <li>Registrieren wie ein normaler Kunde</li>
-                <li>Code von der Rats-Flasche im Konto einlösen</li>
-                <li>Danach: direkte Teilnahme an jeder Sitzung, ohne weiteren Code</li>
+                <li>Code von der Flasche → einmalig registrieren</li>
+                <li>Danach anmelden mit E-Mail und Passwort</li>
+                <li>Teilnahme an jeder Sitzung direkt bestätigen</li>
                 <li>Ratspreis auf alle Weine im Shop</li>
               </ul>
             </div>
@@ -57,47 +57,11 @@ export default async function GeheimratPage() {
 
   const isAdmin = member.role === "admin";
 
-  /* ── (2) Angemeldet, aber (noch) kein Geheimrat: Kundenkonto ───── */
-  if (!member.council && !isAdmin) {
-    return (
-      <>
-        <section className="zone geheimrat" style={{ borderTop: "none" }}>
-          <div className="wrap">
-            <div className="kopf">
-              <div style={{ flex: "1 1 22ch" }}>
-                <span className="marke">Konto</span>
-                <h2 style={{ margin: ".4rem 0 0" }}>Willkommen, {member.name}</h2>
-              </div>
-              <form action={logout}>
-                <button className="knopf knopf--still">Abmelden</button>
-              </form>
-            </div>
-            <div className="zwei">
-              <div>
-                <p className="lead">
-                  Dein Konto ist aktiv — du kannst im Shop bestellen. Noch bist du
-                  kein Mitglied des Geheimrats.
-                </p>
-                <p style={{ color: "var(--kalk-matt)" }}>
-                  Der Weg hinein führt über eine Flasche: Auf jeder Rats-Flasche,
-                  die es an einer Sitzung gibt, steht ein einmaliger Code. Sobald
-                  du ihn hier einlöst, öffnet sich der Ratsbereich — mit Rabatt
-                  und direkter Teilnahme.
-                </p>
-              </div>
-              <RedeemForm />
-            </div>
-          </div>
-        </section>
-        <Footer />
-      </>
-    );
-  }
-
-  /* ── (3) + (4) Geheimrat / Admin ───────────────────────────────── */
+  /* ── (2) + (3) Geheimrat / Admin ───────────────────────────────── */
   const upcoming = await getUpcomingEvent();
   const myAttendance = upcoming ? await getMyAttendance(upcoming.id) : null;
   const includedApplies = upcoming ? await includedAppliesTo(upcoming.id) : false;
+  const myOrders = isAdmin ? [] : await listMyOrders();
 
   const [allEvents, invites, memberList, orderList, codeList, openCodes] =
     isAdmin
@@ -215,6 +179,69 @@ export default async function GeheimratPage() {
               1971er blieb am längsten im Gespräch.
             </p>
           </div>
+
+          {/* Meine Bestellungen (Mitglieder) */}
+          {!isAdmin && (
+            <div style={{ marginTop: "3.5rem" }}>
+              <span className="marke">Meine Bestellungen</span>
+              {myOrders.length === 0 ? (
+                <p style={{ color: "var(--kalk-matt)", marginTop: ".8rem" }}>
+                  Noch keine Bestellungen. Zum{" "}
+                  <a href="/shop" className="gold">
+                    Shop
+                  </a>
+                  .
+                </p>
+              ) : (
+                <div style={{ marginTop: "1rem" }}>
+                  {myOrders.map((o) => (
+                    <details
+                      key={o.id}
+                      style={{ borderTop: "var(--rand)", padding: "1rem 0" }}
+                    >
+                      <summary
+                        style={{
+                          display: "flex",
+                          gap: "1rem",
+                          cursor: "pointer",
+                          listStyle: "none",
+                          alignItems: "baseline",
+                        }}
+                      >
+                        <span
+                          className="gold"
+                          style={{ fontFamily: "var(--mono)", minWidth: "3rem" }}
+                        >
+                          #{o.id}
+                        </span>
+                        <span style={{ flex: 1 }}>
+                          <span className="marke">{o.createdAt}</span>
+                        </span>
+                        <span className="preis">{o.totalLabel}</span>
+                      </summary>
+                      <ul style={{ listStyle: "none", padding: "1rem 0 0 4rem", margin: 0 }}>
+                        {o.items.map((it, idx) => (
+                          <li
+                            key={idx}
+                            style={{
+                              display: "flex",
+                              justifyContent: "space-between",
+                              gap: "1rem",
+                              fontSize: ".9rem",
+                              padding: ".3rem 0",
+                            }}
+                          >
+                            <span>{it.label}</span>
+                            <span className="marke">{it.lineLabel}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </details>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
 
           {/* ── Verwaltung (nur Admin) ── */}
           {isAdmin && (
